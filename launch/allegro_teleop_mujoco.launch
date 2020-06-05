@@ -1,0 +1,87 @@
+<launch>
+    <arg name="xacro_path"   default="$(find ur5_allegro_moveit)/models/ur5_allegro.xacro" />
+    <arg name="urdf_args"   default=""/>
+    <arg name="load_xacro"   default="true"/>
+    <arg name="viz"   default="true"/>
+    <arg name="start_leap"   default="true"/>
+    <arg name="leap_topic"   default="/leap_motion/leap_filtered"/>
+    <arg name="left_handed"   default="False"/>
+    <arg name="joint_state_gui"   default="False"/>
+    <arg name="debug_mode"   default="False"/>
+    
+
+    <include file="$(find allegro_mujoco)/launch/mujoco_ros_communication.launch">
+                <arg name="rviz"   value="false"/>
+                <arg name="render" value="false"/>
+                <arg name="load_robot" value="ur5_allegro"/>
+    </include>
+
+    <group>
+ 
+        <!-- <include file="$(find allegro_hand_kdl)/launch/allegro_torque.launch"> -->
+                <!-- <arg name="sim"   value="True"/> -->
+                <!-- <arg name="RVIZ"   value="false"/> -->
+                <!-- <arg name="xacro_path" value="$(arg xacro_path)"/> -->
+                <!-- <arg name="load_xacro" value="false"/> -->
+                <!-- <arg name="TF" value="false"/> -->
+                <!--  -->
+        <!-- </include> -->
+
+        <include file="$(find allegro_hand_kdl)/launch/cartesian_pose_control.launch">
+                <arg name="NUM" default="0"/>
+                <arg name="HAND" default="right"/>
+                <arg name="MAINTAIN" default="true" />
+                <arg name="POSE" default="" />
+                <arg name="TIME_LIMIT" default="4.0" />
+                <arg name="NS_POSE" default="allegro_hand_kdl/poses" />
+                <arg name="TORQUE_TOPIC" default="position_torque"/>
+        </include>
+        
+        <include file="$(find allegro_hand_kdl)/launch/combine_torques.launch">
+         <!-- output="log"> -->
+        </include>
+    </group>
+    
+
+    <group if="$(arg load_xacro)">
+
+        <node pkg="tf2_ros" type="static_transform_publisher" name="base2common_world" args="0 0 0 0 0 0 1 base common_world" />
+    </group>
+        <!-- <node pkg="tf" type="static_transform_publisher" name="leap_center2palm_link" args="0 0 0 0 0 0 1 leap_hand_center palm_link 100" /> -->
+    <!-- <group> -->
+        <!-- <include file="$(find ur5_allegro_moveit)/launch/planning_context.launch"> -->
+            <!-- <arg name="load_robot_description" value="False"/> -->
+        <!-- </include> -->
+    <!-- </group> -->
+
+
+    <!-- From HERE on we have only teleop and leap nodes -->
+
+    <group if="$(arg start_leap)">
+        <include file="$(find teleoperation_ur5_allegro_leap)/launch/leap_start.launch">
+            <arg name="leap_camera_mode"   value="False"/>
+            <arg name="leap_hand_root"   value="wrist"/>
+            <arg name="leap_tf_hand_parent" value="leap_hands" />
+            <arg name="leap_finger_parent" value="hand_root" />
+
+            <!-- <arg name="leap_hand_tf" value="0 0 0 0.7071067811865475 0.0 0.0 0.7071067811865476 world leap_hands"/> -->
+            <arg name="leap_hand_tf" default="0 0 0 -0.707 0.707 0.000 0.000 hand_root leap_hands"/>
+            <!-- <arg name="leap_right_fingers_tf" value="0 0 0 0.5 -0.5 0.5 0.5 hand_root right_leap_fingers"/> -->
+            <arg name="leap_right_fingers_tf" value="0 0 0 0 0 0 1 hand_root right_leap_fingers"/>
+            <arg name="leap_left_fingers_tf" value="0 0 0 0.5 0.5 0.5 0.5 world left_leap_fingers"/>
+        </include>
+    </group>
+    
+
+    <node pkg="teleoperation_ur5_allegro_leap" type="leap2allegro.py" name="allegro_teleop" output="screen">
+        <param name="left_hand" type="bool" value="false"/>
+        <param name="consumption_rate" type="double" value="60" />
+        <param name="leap_topic" type="str" value="$(arg leap_topic)" />
+    </node>
+
+    <group if="$(arg viz)">
+        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find relaxed_leap_teleop)/rviz/teleop_viz.rviz" />
+    </group>
+
+
+</launch>

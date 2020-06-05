@@ -1,0 +1,121 @@
+<launch>
+    <arg name="xacro_path"   default="$(find ur5_allegro_moveit)/models/ur5_allegro.xacro" />
+    <arg name="urdf_args"   default=""/>
+    <arg name="load_xacro"   default="true"/>
+    <arg name="viz"   default="true"/>
+    <arg name="start_leap"   default="true"/>
+    <arg name="leap_topic"   default="/leap_motion/leap_filtered"/>
+    <arg name="left_handed"   default="False"/>
+    <arg name="joint_state_gui"   default="False"/>
+    <arg name="debug_mode"   default="False"/>
+
+    <group>
+        <!-- <node name="merged_joint_states_0" -->
+            <!-- type="merged_joint_states" -->
+            <!-- pkg="ur5_allegro_moveit"> -->
+            <!-- <remap from="ur5_js" to="move_group/fake_controller_joint_states"/> -->
+            <!-- <remap from="allegro_js" to="allegroHand_0/joint_states"/> -->
+
+            <!-- <remap from="joint_states" to="merged_states"/> -->
+
+            <!-- <param name="overwrite" value="false"/> -->
+        <!-- </node> -->
+        <include file="$(find ur5_allegro_moveit)/launch/ur5_allegro_bringup.launch">
+          <arg name="robot_ip" value="177.22.22.11"/>
+                <!-- <arg name="sim"   value="True"/> -->
+                <!-- <arg name="RVIZ"   value="false"/> -->
+                <!-- <arg name="xacro_path" value="$(arg xacro_path)"/> -->
+                <!-- <arg name="load_xacro" value="false"/> -->
+                <!-- <arg name="TF" value="false"/> -->
+
+        </include>
+
+        <include file="$(find allegro_hand_kdl)/launch/cartesian_pose_control.launch">
+                <arg name="NUM" default="0"/>
+                <arg name="HAND" default="right"/>
+                <arg name="MAINTAIN" default="false" />
+                <!-- <arg name="POSE" default="relax" /> -->
+                <arg name="TIME_LIMIT" default="4.0" />
+                <arg name="NS_POSE" default="allegro_hand_kdl/poses" />
+                <arg name="TORQUE_TOPIC" default="position_torque"/>
+        </include>
+
+        <include file="$(find allegro_hand_kdl)/launch/combine_torques.launch" output="log">
+        </include>
+    </group>
+
+
+    <group if="$(arg load_xacro)">
+        <param name="robot_description" command="xacro --inorder '$(arg xacro_path)' $(arg urdf_args)"/>
+        <node pkg="tf2_ros" type="static_transform_publisher" name="base2common_world" args="0 0 0 0 0 0 1 base common_world" />
+    </group>
+        <!-- <node pkg="tf" type="static_transform_publisher" name="leap_center2palm_link" args="0 0 0 0 0 0 1 leap_hand_center palm_link 100" /> -->
+    <group>
+        <include file="$(find ur5_allegro_moveit)/launch/planning_context.launch">
+            <arg name="load_robot_description" value="False"/>
+        </include>
+
+        <!-- We do not have a robot connected, so publish fake joint states -->
+        <!-- <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher"> -->
+            <!-- <param name="use_gui" value="$(arg joint_state_gui)"/> -->
+            <!-- <rosparam param="source_list">[merged_states]</rosparam> -->
+            <!-- <rosparam param="zeros"> -->
+            <!-- shoulder_pan_joint: -1.085 -->
+            <!-- shoulder_lift_joint: -1.158 -->
+            <!-- elbow_joint: 1.924 -->
+            <!-- wrist_1_joint: 3.868 -->
+            <!-- </rosparam> -->
+        <!-- </node> -->
+        <!-- <node name="jointState2tf_$(arg NUM)" -->
+            <!-- pkg="robot_state_publisher" -->
+            <!-- type="robot_state_publisher" -->
+            <!-- if="$(arg TF)"> -->
+            <!-- <remap from="joint_states" to="allegroHand_$(arg NUM)/joint_states"/> -->
+        <!-- </node> -->
+        <include file="$(find ur5_allegro_moveit)/launch/move_group.launch">
+            <arg name="allow_trajectory_execution" value="true"/>
+            <arg name="fake_execution" value="false"/>
+            <arg name="info" value="true"/>
+            <arg name="debug" value="False"/>
+        </include>
+        <!-- Given the published joint states, publish tf for the robot links -->
+        <!-- <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen"> -->
+        <!-- <remap from="joint_states" to="allegroHand_0/joint_states"/> -->
+        <!-- </node> -->
+
+        <include file="$(find allegro_hand_kdl)/launch/gravity_compensate.launch">
+          <!-- <arg name='TORQUE_TOPIC' value='/allegroHand_0/torque_cmd'/> -->
+        </include>
+
+    </group>
+
+
+    <!-- From HERE on we have only teleop and leap nodes -->
+
+    <group if="$(arg start_leap)">
+        <include file="$(find teleoperation_ur5_allegro_leap)/launch/leap_start.launch">
+            <arg name="leap_camera_mode"   value="False"/>
+            <!-- <arg name="leap_hand_tf" value="0 0 0 0.7071067811865475 0.0 0.0 0.7071067811865476 world leap_hands"/> -->
+            <!-- <arg name="leap_right_fingers_tf" value="0 0 0 0.5 -0.5 0.5 0.5 hand_root right_leap_fingers"/> -->
+            <arg name="leap_right_fingers_tf" value="0 0 0 0 0 0 1 hand_root right_leap_fingers"/>
+            <arg name="leap_hand_tf" default="0 0 0 -0.707 0.707 0.000 0.000 hand_root leap_hands"/>
+            <!-- <arg name="leap_left_fingers_tf" value="0 0 0 0.5 0.5 0.5 0.5 world left_leap_fingers"/> -->
+        </include>
+    </group>
+
+    <node pkg="teleoperation_ur5_allegro_leap" type="leap2allegro.py" name="allegro_teleop" output="screen">
+      <param name="left_hand" type="bool" value="false"/>
+      <param name="consumption_rate" type="double" value="60" />
+      <param name="leap_topic" type="str" value="$(arg leap_topic)" />
+    </node>
+
+
+
+    <group if="$(arg viz)">
+        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find relaxed_leap_teleop)/rviz/teleop_viz.rviz" />
+    </group>
+
+
+
+
+</launch>
