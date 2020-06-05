@@ -21,8 +21,9 @@ class EventCatcher(Tk, object):
         super(EventCatcher, self).__init__(screenName=screenName, baseName=baseName, className=className, useTk=useTk, sync=sync, use=use)
 
         self.actions = dict()
+        self.action_description = dict()
         self.status_frame = Frame(self)
-        self.status_frame.pack(fill=X, padx=5, pady=5, side=TOP)
+        self.status_frame.pack(fill=BOTH, padx=5, pady=5, side=TOP)
 
         self.description_frame = Frame(self)#, background='black')
         self.description_frame.pack(fill=BOTH, padx=5, pady=5, side=TOP)
@@ -58,9 +59,9 @@ class EventCatcher(Tk, object):
         self.root.quit()
         self.root.update()
 
-    def bind_action(self, button, function):
+    def bind_action(self, button, function, description=None):
         self.actions[button] = function
-
+        self.action_description[button] = description
     def onCloseWindow(self):
         self.destroy()
     
@@ -70,6 +71,16 @@ class EventCatcher(Tk, object):
                 anchor='w', font=("Helvetica", 10), 
                 borderwidth=3, relief=FLAT,
             ).grid(padx=5, row=i, column=0, sticky=N+W+E, columnspan=2)#.pack(fill=X, expand=True, padx=5, pady=5, side=LEFT)
+
+            Label(self.description_frame, textvariable=StringVar(self, '->'), 
+                anchor='w', font=("Helvetica", 10), 
+                borderwidth=3, relief=FLAT,
+            ).grid(padx=2, row=i, column=3, sticky=N+W+E, columnspan=1)
+
+            Label(self.description_frame, textvariable=StringVar(self, self.action_description[action]), 
+                anchor='w', font=("Helvetica", 10), 
+                borderwidth=3, relief=FLAT,
+            ).grid(padx=3, row=i, column=4, sticky=N+W+E, columnspan=2)#.pack(fill=X, expand=True, padx=5, pady=5, side=LEFT)
 
     def keydown(self, event):
         if event.keysym in self.actions:
@@ -83,38 +94,18 @@ class EventCatcher(Tk, object):
             if self.actions[event.keysym][1] is not None: 
                 self.actions[event.keysym][1]()
         
-# def infinite_loop():
-
-#     # import t
-#     global banana
-#     global ec
-#     if not banana:
-#         print(banana)
-#         ec.after(1000, infinite_loop)
-#     else:
-#         toggle_banana()
-
-
-# def toggle_banana():
-#     global banana
-#     print('RIATTIVO BANANA')
-#     banana = not banana
-
 if __name__ == "__main__":
     
-    # banana=False
     rospy.init_node('event_tester')
     ec = EventCatcher()
     ec.title("Teleop Controller")
     ec.status_string.set('TerapiaTaioco')
-    ec.bind_action('a', (lambda : print('you just pressed a'), None))
-    # ec.bind_action('n', (toggle_banana, None))
-    # ec.bind_action('l', (infinite_loop, None))
-    ec.bind_action('b', (lambda : print('you just pressed b'), None))
-    ec.bind_action('F1', (lambda : print('you just pressed F1'), None))
-    ec.bind_action('c', (None, (lambda : print('you just unpressed c'))))
-    ec.bind_action('space', (None, (lambda : print('you just unpressed space'))))
-    ec.bind_action('BackSpace', (None, (lambda : print('you just unpressed backspace'))))
+    ec.bind_action('a', (lambda : print('you just pressed a'), None), 'abecedario')
+    ec.bind_action('b', (lambda : print('you just pressed b'), None), 'bobba')
+    ec.bind_action('F1', (lambda : print('you just pressed F1'), None), 'function')
+    ec.bind_action('c', (None, (lambda : print('you just unpressed c'))), 'cocco')
+    ec.bind_action('space', (None, (lambda : print('you just unpressed space'))), 'space')
+    ec.bind_action('BackSpace', (None, (lambda : print('you just unpressed backspace'))), 'backspace')
     ec.show_keybinders()
     ec.mainloop()
     
