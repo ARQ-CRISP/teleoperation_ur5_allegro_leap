@@ -93,7 +93,7 @@ class Leap_Teleop_Allegro():
         self.__calibration_mode = not self.__calibration_mode
 
     def toggle_tracking(self):
-        if self.leap_listener is None:
+        if self.__leap_listener is None:
             rospy.loginfo('Allegro Teleop: Resuming Tracking!')
             self.__leap_listener = rospy.Subscriber(
                 self.leap_topic, Human, self._OnLeapReceived, queue_size=1)
