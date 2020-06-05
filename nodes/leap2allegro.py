@@ -144,6 +144,6 @@ if __name__ == "__main__":
     ec.bind_action('F1', (lambda : calibrate_procedure(allegro_teleop, 'index', 'Index', 'Thumb', eps=1e-2), None))
     ec.bind_action('F2', (lambda : calibrate_procedure(allegro_teleop, 'middle', 'Middle', 'Thumb', eps=1e-2), None))
     ec.bind_action('F3', (lambda : calibrate_procedure(allegro_teleop, 'ring', 'Ring', 'Thumb', eps=1.1e-2), None))
-
+    ec.show_keybinders()
 
     ec.mainloop()

@@ -24,18 +24,23 @@ class EventCatcher(Tk, object):
         self.status_frame = Frame(self)
         self.status_frame.pack(fill=X, padx=5, pady=5, side=TOP)
 
-        self.description_frame = Frame(self, background='black')
-        self.description_frame.pack(fill=X, padx=5, pady=5, side=BOTTOM)
-        self.description_string = ''
-        self.description = Label(self.description_frame, textvariable=self.description_string, anchor='center', 
-                                width=15, height=2).pack(fill=X, padx=5, pady=5)
+        self.description_frame = Frame(self)#, background='black')
+        self.description_frame.pack(fill=BOTH, padx=5, pady=5, side=TOP)
+        
+        # self.status_string = ''
+        # self.status_label = Label(self.description_frame, 
+        #                         textvariable=self.status_string, anchor='center', 
+        #                         width=15, height=2).pack(fill=BOTH, padx=5, pady=5)
 
-        self.string = StringVar(self, '')
+        self.status_string = StringVar(self.status_frame, '')
         self.title('Event Catcher')
-        self.text = Label(self.status_frame, textvariable=self.string, anchor='center', 
+        self.status_label = Label(self.status_frame, textvariable=self.status_string, anchor='center', 
                         font=("Helvetica", 15),
                         borderwidth=1, relief=GROOVE, #relief=RIDGE, 
-                        width=15, height=2).pack(fill=BOTH, expand=True, padx=5, pady=5)#.grid(row=10, column=30)
+                        width=15, height=2).pack(fill=X, expand=True, padx=5, pady=5)#.grid(row=10, column=30)
+
+        self.hotkey_text_labels = []
+
         self.protocol("WM_DELETE_WINDOW", self.onCloseWindow)
         self.geometry("300x300")
         self.bind("<KeyPress>", self.keydown)
@@ -44,7 +49,7 @@ class EventCatcher(Tk, object):
         signal.signal(signal.SIGINT, self.close_app)
 
     def set_status(self, status):
-        self.string.set(status)
+        self.status_string.set(status)
 
     def set_title(self, title):
         self.title(title)
@@ -58,6 +63,13 @@ class EventCatcher(Tk, object):
 
     def onCloseWindow(self):
         self.destroy()
+    
+    def show_keybinders(self):
+        for i, action in enumerate(self.actions):
+            Label(self.description_frame, textvariable=StringVar(self, action), 
+                anchor='w', font=("Helvetica", 10), 
+                borderwidth=3, relief=FLAT,
+            ).grid(padx=5, row=i, column=0, sticky=N+W+E, columnspan=2)#.pack(fill=X, expand=True, padx=5, pady=5, side=LEFT)
 
     def keydown(self, event):
         if event.keysym in self.actions:
@@ -94,7 +106,7 @@ if __name__ == "__main__":
     rospy.init_node('event_tester')
     ec = EventCatcher()
     ec.title("Teleop Controller")
-    ec.string.set('TerapiaTaioco')
+    ec.status_string.set('TerapiaTaioco')
     ec.bind_action('a', (lambda : print('you just pressed a'), None))
     # ec.bind_action('n', (toggle_banana, None))
     # ec.bind_action('l', (infinite_loop, None))
@@ -103,5 +115,6 @@ if __name__ == "__main__":
     ec.bind_action('c', (None, (lambda : print('you just unpressed c'))))
     ec.bind_action('space', (None, (lambda : print('you just unpressed space'))))
     ec.bind_action('BackSpace', (None, (lambda : print('you just unpressed backspace'))))
+    ec.show_keybinders()
     ec.mainloop()
     
