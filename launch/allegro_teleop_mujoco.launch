@@ -8,12 +8,14 @@
     <arg name="left_handed"   default="False"/>
     <arg name="joint_state_gui"   default="False"/>
     <arg name="debug_mode"   default="False"/>
+    <arg name="world_name"   default="model-ball.xml"/>
     
 
     <include file="$(find allegro_mujoco)/launch/mujoco_ros_communication.launch">
                 <arg name="rviz"   value="false"/>
-                <arg name="render" value="false"/>
+                <arg name="render" value="true"/>
                 <arg name="load_robot" value="ur5_allegro"/>
+                <arg name="world_model_file" type="str" value="$(find allegro_mujoco)/config/worlds/$(arg world_name)" />
     </include>
 
     <group>
@@ -77,6 +79,7 @@
         <param name="left_hand" type="bool" value="false"/>
         <param name="consumption_rate" type="double" value="60" />
         <param name="leap_topic" type="str" value="$(arg leap_topic)" />
+        
     </node>
 
     <group if="$(arg viz)">
