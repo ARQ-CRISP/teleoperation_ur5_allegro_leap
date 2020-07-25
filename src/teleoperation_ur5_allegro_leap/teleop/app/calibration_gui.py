@@ -1,7 +1,8 @@
 #! /usr/bin/env python
 import rospy
 import numpy as np
-from teleoperation_ur5_allegro_leap import EventCatcher
+from rospkg import RosPack
+from key_event_catcher import EventCatcher
 from teleoperation_ur5_allegro_leap.teleop.allegro.calibration import listoffingers_to_dict, set_calibration_pose_param, get_max_pose_index
 
 
@@ -17,22 +18,30 @@ class Calibration_GUI():
 
         self.stop_calibration = False
         self.event_catcher = EventCatcher() if event_catcher is None else event_catcher
-        self.event_catcher.set_status('Execution_Mode')
-        self.event_catcher.set_title('Teleop Controller')
         self.allegro_teleop_interface = allegro_teleop_interface
+        self.event_catcher.add_frame('Calibration')
 
-        self.event_catcher.bind_action(
-            'Escape', (None, self.allegro_teleop_interface.toggle_tracking), 'Toggle Tracking mode')
-        self.event_catcher.bind_action(
-            'space', (None, self.allegro_teleop_interface.toggle_calibration_mode), 'Toggle Calibration mode')
-        self.event_catcher.bind_action('BackSpace', (None, self.exit_calibration_mode),
-                                       'Exit Calibration mode')
+        self.event_catcher.menus['File'].add_command(
+            label='Start calibration world', command=self.goto_calibration_world)
+
+        self.event_catcher.bind_action('Escape', (None, 
+            self.allegro_teleop_interface.toggle_tracking), 'Toggle Tracking mode',frame_name='Calibration')
+        
+        self.event_catcher.bind_action('space', (None, 
+            self.allegro_teleop_interface.toggle_calibration_mode), 'Toggle Calibration mode', frame_name='Calibration')
+        
+        self.event_catcher.bind_action('BackSpace', (None, 
+            self.exit_calibration_mode), 'Exit Calibration mode', frame_name='Calibration')
+        
         self.event_catcher.bind_action('F1', (lambda: self.calibrate_procedure(
-            self.allegro_teleop_interface, 'index', 'Index', 'Thumb', eps=1e-2), None), 'Calibrate Index')
+            'index', 'Index', 'Thumb', eps=1e-2), None), 'Calibrate Index', frame_name='Calibration')
+        
         self.event_catcher.bind_action('F2', (lambda: self.calibrate_procedure(
-            self.allegro_teleop_interface, 'middle', 'Middle', 'Thumb', eps=1e-2), None), 'Calibrate Middle')
+            'middle', 'Middle', 'Thumb', eps=1e-2), None), 'Calibrate Middle', frame_name='Calibration')
+        
         self.event_catcher.bind_action('F3', (lambda: self.calibrate_procedure(
-            self.allegro_teleop_interface, 'ring', 'Ring', 'Thumb', eps=1.1e-2), None), 'Calibrate Ring')
+            'ring', 'Ring', 'Thumb', eps=1.1e-2), None), 'Calibrate Ring', frame_name='Calibration')
+
 
     def enter_calibration_mode(self):
 
@@ -49,20 +58,29 @@ class Calibration_GUI():
     def is_calibrating(self):
         return not self.stop_calibration
 
-    def calibrate_procedure(self, teleop_obj, pose_name, Finger1, Finger2, eps=1e-3):
+    def goto_calibration_world(self):
+        # try:
+        #     if self.event_catcher.top_level is not None:
+        #         self.event_catcher.top_level.quit()
+        # except e:
+        #     pass
+        mujpath = RosPack().get_path('allegro_mujoco')
+        self.event_catcher.load_simulation(mujpath + '/config/worlds/' + 'calibration-world.xml')
+
+    def calibrate_procedure(self,  pose_name, Finger1, Finger2, eps=1e-3):
 
         if not self.allegro_teleop_interface.is_calibrating:
-            teleop_obj.toggle_calibration_mode()
+            self.allegro_teleop_interface.toggle_calibration_mode()
         rospy.loginfo('Allegro Teleop >> going to calibration mode!')
-        teleop_obj.goto_pose_by_name(pose_name)
+        self.allegro_teleop_interface.goto_pose_by_name(pose_name)
         self.enter_calibration_mode()
         # while True:
-        self.do_calibrate(teleop_obj, pose_name, Finger1, Finger2, eps)
+        self.do_calibrate(pose_name, Finger1, Finger2, eps)
 
-    def do_calibrate(self, teleop_obj, pose_name, Finger1, Finger2, eps=1e-3):
+    def do_calibrate(self, pose_name, Finger1, Finger2, eps=1e-3):
 
-        fing1 = teleop_obj.leap_hand_tracker.fingers[Finger1].position[-1, :]
-        fing2 = teleop_obj.leap_hand_tracker.fingers[Finger2].position[-1, :]
+        fing1 = self.allegro_teleop_interface.leap_hand_tracker.fingers[Finger1].position[-1, :]
+        fing2 = self.allegro_teleop_interface.leap_hand_tracker.fingers[Finger2].position[-1, :]
         dist = np.linalg.norm(fing1 - fing2)
         print(chr(27)+'[2j')
         print('\033c')
@@ -82,9 +100,8 @@ class Calibration_GUI():
                     'Allegro Teleop >> Calibration terminated prematurely dist: {} -> press space'.format(dist))
 
             self.exit_calibration_mode()
-            teleop_obj.allegro_state[Finger1].update_measure()
-            teleop_obj.allegro_state[Finger2].update_measure()
+            self.allegro_teleop_interface.allegro_state[Finger1].update_measure()
+            self.allegro_teleop_interface.allegro_state[Finger2].update_measure()
 
         else:
-            self.event_catcher.after(1000, lambda: self.do_calibrate(
-                teleop_obj, pose_name, Finger1, Finger2, eps))
+            self.event_catcher.after(500, lambda: self.do_calibrate(pose_name, Finger1, Finger2, eps))

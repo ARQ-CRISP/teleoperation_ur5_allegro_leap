@@ -9,7 +9,7 @@ import tf2_ros
 import tf2_geometry_msgs
 from geometry_msgs.msg import TransformStamped
 from leap_motion.msg import leapros, Human, Hand, Finger, Bone
-from tf.transformations import quaternion_multiply
+from tf.transformations import quaternion_from_matrix, quaternion_matrix, quaternion_multiply
 from leaptfutils import advertise_tf, get_hand_quaternion, basis_change, rotate_quat, rotate_vec_quat, quaternion_from_axis_angle
 
 
@@ -58,7 +58,11 @@ class Leap_TF_Pub(object):
         if leap_hand.is_present:
             palm_position = leap_hand.palm_center
             center_xyz = [palm_position.x, palm_position.y, palm_position.z]
-            wrist_xyz = leap_hand.wrist_position
+            wrist_xyz = [
+                leap_hand.arm.wrist.position.x,
+                leap_hand.arm.wrist.position.y,
+                leap_hand.arm.wrist.position.z]
+
             direction = np.array([leap_hand.direction.x,
                          leap_hand.direction.y, leap_hand.direction.z, ])
             normal = np.array([leap_hand.normal.x,
@@ -90,7 +94,7 @@ class Leap_TF_Pub(object):
             if 'wrist' in self.hand_root:
                 self.root_coordinate = [wrist_xyz, hand_quat]
                 wrist_xyz = self.root_coordinate[0]
-                center_xyz = self.to_hand_reference(center_xyz)
+                center_xyz = self.to_hand_reference(center_xyz)[0]
                 wrist_quat = self.root_coordinate[1]
                 center_quat = base_quat
                 center_source_frame = side_str + self.fingers_frame_base_name
@@ -99,7 +103,7 @@ class Leap_TF_Pub(object):
             elif 'center' in self.hand_root:
                 self.root_coordinate = [center_xyz, hand_quat]
                 center_xyz = self.root_coordinate[0]
-                wrist_xyz = self.to_hand_reference(wrist_xyz)
+                wrist_xyz = self.to_hand_reference(wrist_xyz)[0]
                 center_quat = self.root_coordinate[1]
                 wrist_quat = base_quat
                 center_source_frame = self.hands_frame
@@ -131,12 +135,13 @@ class Leap_TF_Pub(object):
     def process_bone(self, leap_bone, side_str, finger_str, finger_origin):
         source_frame_name = side_str + self.fingers_frame_base_name
         bone_str = side_str + finger_str
-        boneend_xyz = self.to_hand_reference(
-            [leap_bone.bone_end.position.x, leap_bone.bone_end.position.y, leap_bone.bone_end.position.z])
+        boneend_xyz, bone_quat = self.to_hand_reference(
+            [leap_bone.bone_end.position.x, leap_bone.bone_end.position.y, leap_bone.bone_end.position.z],
+            [leap_bone.bone_end.orientation.x, leap_bone.bone_end.orientation.y, leap_bone.bone_end.orientation.z, leap_bone.bone_end.orientation.w])
         bonestart_xyz = self.to_hand_reference(
-            [leap_bone.bone_start.position.x, leap_bone.bone_start.position.y, leap_bone.bone_start.position.z])
+            [leap_bone.bone_start.position.x, leap_bone.bone_start.position.y, leap_bone.bone_start.position.z])[0]
         finger_origin_xyz = self.to_hand_reference(
-            [finger_origin.x, finger_origin.y, finger_origin.z])
+            [finger_origin.x, finger_origin.y, finger_origin.z])[0]
         
         origin_direction = finger_origin_xyz / np.linalg.norm(finger_origin_xyz, 2)
         bone_direction = boneend_xyz - bonestart_xyz
@@ -150,7 +155,7 @@ class Leap_TF_Pub(object):
             # bone_quat = self.quat_from_directions(origin_direction, bone_direction)
             bone_quat = self.quat_from_directions(np.eye(3)[0], bone_direction)
             if 'Thumb' not in finger_str:
-                x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi)
+                x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi * 7/6)
                 bone_quat = quaternion_multiply(bone_quat, x_quat)
                 # bone_quat = quaternion_from_axis_angle(bone_direction, -np.pi)
             else:
@@ -217,7 +222,7 @@ class Leap_TF_Pub(object):
             bone_normal /= np.linalg.norm(bone_normal, 2)
         return bone_normal
 
-    def to_hand_reference(self, point_xyz):  # , ref_v, ref_q):
+    def to_hand_reference(self, point_xyz, pose_quat=(0., 0., 0., 1.)):  # , ref_v, ref_q):
 
         # ref_v = np.array(ref_v)
         # ref_q = np.array(ref_q)
@@ -227,7 +232,11 @@ class Leap_TF_Pub(object):
         point_xyz = tf.transformations.quaternion_multiply(
             tf.transformations.quaternion_conjugate(self.root_quat),
             tf.transformations.quaternion_multiply(np.concatenate([d, [0.0]]), self.root_quat))
-        return point_xyz[0:3]
+        pose_quat = tf.transformations.quaternion_multiply(
+            tf.transformations.quaternion_conjugate(self.root_quat),
+            tf.transformations.quaternion_multiply(pose_quat, self.root_quat))
+        
+        return point_xyz[0:3], pose_quat
 
     @property
     def finger_names(self):

@@ -13,10 +13,11 @@ import numpy as np
 import rospy
 import tf2_ros
 from teleoperation_ur5_allegro_leap import Leap_Teleop_Allegro
-from teleoperation_ur5_allegro_leap import EventCatcher
+from teleoperation_ur5_allegro_leap import EventCatcher, Calibration_GUI, Movegroup_GUI, Experiments_GUI
 from teleoperation_ur5_allegro_leap.teleop.allegro.calibration import listoffingers_to_dict, set_calibration_pose_param, get_max_pose_index
-from teleoperation_ur5_allegro_leap.teleop.app.calibration_gui import Calibration_GUI
-
+# from teleoperation_ur5_allegro_leap.teleop.app.calibration_gui import Calibration_GUI
+# from teleoperation_ur5_allegro_leap.teleop.app.ur5_moveit_gui import Movegroup_GUI
+# from teleoperation_ur5_allegro_leap import Cali
 
 
 if __name__ == "__main__":
@@ -42,8 +43,13 @@ if __name__ == "__main__":
     rospy.on_shutdown(allegro_teleop.on_shutdown)
     # stop_calibration = False
 
-    ec = EventCatcher()
+    ec = EventCatcher(size=(300, 600))
+    rospy.on_shutdown(ec.close_app)
+    ec.set_status('Execution_Mode')
+    ec.set_title('Teleop Controller')
     calib_gui = Calibration_GUI(allegro_teleop, ec)
+    movegrp_gui = Movegroup_GUI('ur5_arm', event_catcher=ec)
+    experiment_gui = Experiments_GUI(movegrp_gui, event_catcher=ec)
     ec.show_keybinders()
 
     ec.mainloop()

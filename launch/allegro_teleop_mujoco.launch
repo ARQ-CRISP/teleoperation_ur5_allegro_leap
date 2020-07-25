@@ -8,7 +8,7 @@
     <arg name="left_handed"   default="False"/>
     <arg name="joint_state_gui"   default="False"/>
     <arg name="debug_mode"   default="False"/>
-    <arg name="world_name"   default="model-ball.xml"/>
+    <arg name="world_name"   default="calibration-world.xml"/>
     
 
     <include file="$(find allegro_mujoco)/launch/mujoco_ros_communication.launch">
@@ -20,14 +20,6 @@
 
     <group>
  
-        <!-- <include file="$(find allegro_hand_kdl)/launch/allegro_torque.launch"> -->
-                <!-- <arg name="sim"   value="True"/> -->
-                <!-- <arg name="RVIZ"   value="false"/> -->
-                <!-- <arg name="xacro_path" value="$(arg xacro_path)"/> -->
-                <!-- <arg name="load_xacro" value="false"/> -->
-                <!-- <arg name="TF" value="false"/> -->
-                <!--  -->
-        <!-- </include> -->
 
         <include file="$(find allegro_hand_kdl)/launch/cartesian_pose_control.launch">
                 <arg name="NUM" default="0"/>

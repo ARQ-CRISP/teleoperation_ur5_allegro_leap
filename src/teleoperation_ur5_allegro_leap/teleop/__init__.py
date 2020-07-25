@@ -1,6 +1,6 @@
 # from .relaxed_wrapper import Relaxed_UR5_Controller
 from .allegro.leap_allegro_teleop import Leap_Teleop_Allegro
-from .app import EventCatcher
+from .app import EventCatcher, Calibration_GUI, Movegroup_GUI, Experiments_GUI
 
 # from .ur5.leap2ur5 import Leap_Teleop_RelaxedIK
 import allegro.allegro_state as allegro_state
