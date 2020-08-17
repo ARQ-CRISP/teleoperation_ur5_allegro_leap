@@ -78,5 +78,7 @@
         <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find relaxed_leap_teleop)/rviz/teleop_viz.rviz" />
     </group>
 
-
+    <include file="$(find haptic_glove_ros)/launch/opto2glove.launch" output="screen">
+            
+    </include>
 </launch>

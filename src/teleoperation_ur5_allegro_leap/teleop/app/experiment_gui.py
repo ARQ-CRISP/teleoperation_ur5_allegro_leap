@@ -1,5 +1,6 @@
 #! /usr/bin/env python
-from __future__ import print_function
+from __future__ import print_function, division
+from Tkconstants import BOTTOM
 import rospy
 from std_msgs.msg import String
 import numpy as np
@@ -31,6 +32,7 @@ TOPICS = [
     "/tf_static",
     "/vibration_command",
     "/vibration_state",
+    "/experiment_state"
     ]
 
 
@@ -50,6 +52,8 @@ class Experiment_Panel(Toplevel):
             command=self.grasping_experiment, justify=CENTER, padx=5, pady=5)
         self.manip_button = Button(self.button_frame, text='Start Manipulation', 
             command=self.manipulation_experiment, justify=CENTER, padx=5, pady=5)
+        self.expall_button = Button(self.button_frame, text='Start Exp-ALL', 
+            command=self.experiment_all, justify=CENTER, padx=5, pady=5)
         self.button_frame.pack(fill=BOTH, padx=5, pady=5, side=TOP)
 
         self.labels_frame = Frame(self.window_frame)
@@ -83,6 +87,7 @@ class Experiment_Panel(Toplevel):
         self.window_frame.pack(fill=BOTH, padx=5, pady=5, side=TOP)
         self.grasp_button.pack(fill=BOTH, padx=5, pady=5, side=LEFT)
         self.manip_button.pack(fill=BOTH, padx=5, pady=5, side=RIGHT)
+        self.expall_button.pack(fill=X, padx=5, pady=5, side=BOTTOM)
 
         self.button_frame.pack(fill=BOTH, padx=5, pady=5, side=TOP)
         self.labels_frame.pack(fill=BOTH, padx=5, pady=5, side=TOP)
@@ -97,8 +102,11 @@ class Experiment_Panel(Toplevel):
         hold_countdown_label.pack(fill=X, pady=5, side=LEFT)
         manipulation_countdown_label.pack(fill=X, pady=5, side=LEFT)
 
+        self.exp_pub = rospy.Publisher('experiment_state', String, queue_size=1)
 
         self.success = [False, False, False]
+        self.bind("<KeyPress>", master.keydown)
+        self.bind("<KeyRelease>", master.keyup)
 
     def get_object_pose(self):
         tf_stamped = self.tf_buffer.lookup_transform('object', 'world', rospy.Time().now(), rospy.Duration(0.2))
@@ -146,8 +154,14 @@ class Experiment_Panel(Toplevel):
         else:
             self.after(200, fun)
 
+    def experiment_all(self):
+        self.grasping_experiment()
+        self.after(int(2300 * self.seconds_to_closure), self.manipulation_experiment)
+
     def grasping_experiment(self):
-        self.start_recording('experiment_grasping_' + self.name, self.seconds_to_closure * 3)
+        # self.start_recording('experiment_grasping_' + self.name, self.seconds_to_closure * 2.5)
+        # self.after(int(2.7 * self.seconds_to_closure * 1000), lambda: print('End of Rosbag Recording!'))
+        self.publish_experiment_state('experiment_manipulation_' + self.name, self.seconds_to_closure * 2.5)
         def move_arm_and_measure():
             self.moveit_gui.translate([0.0, 0.0, 0.15])
             self.after(500, self.check_grasp)
@@ -156,16 +170,34 @@ class Experiment_Panel(Toplevel):
         # self.after(int(3 * self.seconds_to_closure * 1000), self.manipulation_experiment)
 
     def manipulation_experiment(self):
-        self.start_recording('experiment_manipulation_' + self.name, self.seconds_to_closure * 2)
+        # self.start_recording('experiment_manipulation_' + self.name, self.seconds_to_closure * 1.5)
+        # self.after(int(2. * self.seconds_to_closure * 1000), lambda: print('End of Rosbag Recording!'))
+        self.publish_experiment_state('experiment_manipulation_' + self.name, self.seconds_to_closure * 1.5)
         def move_arm_and_measure():
             self.moveit_gui.translate([0.0, 0.0, -0.15])
             self.after(500, self.check_manipulation)
             
         self.experiment_countdown(move_arm_and_measure, self.seconds_to_closure + 1, self.manipulation_countdown_text)
 
+    def publish_experiment_state(self, msg_str, secs, begin=True):
+        s_to_ms = 1000
+        freq = 1.0/30
+        
+        t_left = secs - freq
+        msg = String()
+        if begin:
+            msg.data = '[BEGIN] ' + msg_str
+        if t_left > 0:
+            msg.data = '[ONGOING] ' + msg_str
+            self.exp_pub.publish(msg)
+            self.after(int(s_to_ms * freq), self.publish_experiment_state, msg_str, t_left, False)
+        else:
+            msg.data = '[ENDING] ' + msg_str
+            self.exp_pub.publish(msg)
+
     def experiment_button(self):
         # self.event_catcher.after(500, lambda: self.do_calibrate(pose_name, Finger1, Finger2, eps))
-        self.start_recording('experiment_' + self.name)
+        # self.start_recording('experiment_' + self.name)
         self.after(int(5.5 * self.seconds_to_closure * 1000), lambda: print('End of Rosbag Recording!'))
         # self.after(int((5 * self.seconds_to_closure) * 1000) , self.stop_recording)
 
@@ -239,19 +271,20 @@ class Experiments_GUI():
         # self.event_catcher.menubar.add_cascade(label="Load Experiments", menu=self.experiment_menu)
 
     def load_experiment(self, experiment):
-        self.event_catcher.load_simulation(experiment['worldfile'])
         init = experiment['init_position']
+        self.moveit_gui.goto(init)
+        self.event_catcher.load_simulation(experiment['worldfile'])
         # bootstrap = [el for el in init]
         # bootstrap[2] += .3
         # self.moveit_gui.goto(bootstrap)
         # rospy.sleep(.5)
-        self.moveit_gui.goto(init)
         def close_top_level():
             self.top_level.destroy()
             self.top_level = None
             print('Experiment closed!!!')
         if self.top_level is not None and self.top_level:
             close_top_level()
+        
         self.top_level = Experiment_Panel(self.event_catcher, experiment['name'], self.moveit_gui, self.tf_buffer, self.seconds_to_closure)
         self.top_level.protocol("WM_DELETE_WINDOW", close_top_level)
 

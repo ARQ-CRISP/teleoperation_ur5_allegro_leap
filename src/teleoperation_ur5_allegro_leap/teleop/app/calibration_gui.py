@@ -34,13 +34,19 @@ class Calibration_GUI():
             self.exit_calibration_mode), 'Exit Calibration mode', frame_name='Calibration')
         
         self.event_catcher.bind_action('F1', (lambda: self.calibrate_procedure(
-            'index', 'Index', 'Thumb', eps=1e-2), None), 'Calibrate Index', frame_name='Calibration')
+            'index', 'Index', 'Thumb', eps=0.011), None), 'Calibrate Index', frame_name='Calibration')
         
         self.event_catcher.bind_action('F2', (lambda: self.calibrate_procedure(
-            'middle', 'Middle', 'Thumb', eps=1e-2), None), 'Calibrate Middle', frame_name='Calibration')
+            'middle', 'Middle', 'Thumb', eps=0.011), None), 'Calibrate Middle', frame_name='Calibration')
         
         self.event_catcher.bind_action('F3', (lambda: self.calibrate_procedure(
-            'ring', 'Ring', 'Thumb', eps=1.1e-2), None), 'Calibrate Ring', frame_name='Calibration')
+            'ring', 'Ring', 'Thumb', eps=0.01), None), 'Calibrate Ring', frame_name='Calibration')
+
+        self.event_catcher.bind_action('F6', (lambda: self.goto_open_hand()
+            , None), 'Open Hand', frame_name='Calibration')
+
+        self.event_catcher.bind_action('F7', (lambda: self.update_hand_state()
+            , None), 'Update Measure', frame_name='Calibration')
 
 
     def enter_calibration_mode(self):
@@ -81,7 +87,7 @@ class Calibration_GUI():
 
         fing1 = self.allegro_teleop_interface.leap_hand_tracker.fingers[Finger1].position[-1, :]
         fing2 = self.allegro_teleop_interface.leap_hand_tracker.fingers[Finger2].position[-1, :]
-        dist = np.linalg.norm(fing1 - fing2)
+        dist = round(np.linalg.norm(fing1 - fing2), 3)
         print(chr(27)+'[2j')
         print('\033c')
         print('\x1bc')
@@ -105,3 +111,21 @@ class Calibration_GUI():
 
         else:
             self.event_catcher.after(500, lambda: self.do_calibrate(pose_name, Finger1, Finger2, eps))
+
+    def goto_open_hand(self):
+        if not self.allegro_teleop_interface.is_calibrating:
+            self.allegro_teleop_interface.toggle_calibration_mode()
+        rospy.loginfo('Allegro Teleop >> going to calibration mode!')
+        self.enter_calibration_mode()
+        # self.allegro_teleop_interface.goto_pose_by_name('wide_open')
+        self.allegro_teleop_interface.goto_pose_by_name('relax')
+
+    def update_hand_state(self):
+        if not self.allegro_teleop_interface.is_calibrating:
+            self.allegro_teleop_interface.toggle_calibration_mode()
+        rospy.loginfo('Allegro Teleop >> going to calibration mode!')
+        self.enter_calibration_mode()
+        # self.allegro_teleop_interface.goto_pose_by_name('wide_open')
+        for finger in ['Thumb', 'Index', 'Middle', 'Ring']:
+            self.allegro_teleop_interface.allegro_state[finger].update_measure()
+

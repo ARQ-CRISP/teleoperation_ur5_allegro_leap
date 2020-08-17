@@ -155,12 +155,21 @@ class Leap_TF_Pub(object):
             # bone_quat = self.quat_from_directions(origin_direction, bone_direction)
             bone_quat = self.quat_from_directions(np.eye(3)[0], bone_direction)
             if 'Thumb' not in finger_str:
-                x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi * 7/6)
+                x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi)
                 bone_quat = quaternion_multiply(bone_quat, x_quat)
                 # bone_quat = quaternion_from_axis_angle(bone_direction, -np.pi)
+                # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.3826834, 0, 0.9238795 ]) #45deg
+                # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.258819, 0, 0.9659258 ])  #30deg
+                # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.1305262, 0, 0.9914449 ]) #15deg
+                # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.0871557, 0, 0.9961947 ]) #10deg
             else:
-                x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi/2)
+                x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi/5.)
                 bone_quat = quaternion_multiply(bone_quat, x_quat)
+                # bone_quat = quaternion_multiply(bone_quat, [ 0, -0.3826834, 0, 0.9238795 ]) #-45deg
+                # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.3826834, 0, 0.9238795 ]) #45deg
+                # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.258819, 0, 0.9659258 ])  #30deg
+                # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.1305262, 0, 0.9914449 ]) #15deg
+                # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.0871557, 0, 0.9961947 ]) #10deg
 
 
         # print("{:.3f}, {:.3f}, {:.3f} -> {}".format(*(r.as_euler('xyz')/np.pi*180).tolist() + [bone_str]))

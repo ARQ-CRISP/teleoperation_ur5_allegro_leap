@@ -3,23 +3,23 @@ experiment_settings:
   
 experiments:
   - name: "cube-mid"
-    worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-box-cube.xml'
-    init_position: [0.229, 0.414, 1.130]
+    worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-box-cube-mid.xml'
+    init_position: [0.229, 0.414, 1.135]
   - name: "cube-small"
     worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-box-cube-small.xml'
-    init_position: [0.229, 0.414, 1.130]
+    init_position: [0.229, 0.414, 1.135]
   - name: "cube-large"
     worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-box-cube-large.xml'
     init_position: [0.229, 0.414, 1.145]
-  - name: "sphere-mid"
-    worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-sphere.xml'
-    init_position: [0.229, 0.414, 1.130]
-  - name: "sphere-small"
-    worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-sphere-small.xml'
-    init_position: [0.229, 0.414, 1.130]
-  - name: "sphere-large"
-    worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-sphere-large.xml'
-    init_position: [0.229, 0.414, 1.130]
+  # - name: "sphere-mid"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-sphere.xml'
+  #   init_position: [0.229, 0.414, 1.132]
+  # - name: "sphere-small"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-sphere-small.xml'
+  #   init_position: [0.229, 0.414, 1.132]
+  # - name: "sphere-large"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-sphere-large.xml'
+  #   init_position: [0.229, 0.414, 1.132]
   # - name: "cylinder"
   #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-cylinder.xml'
   #   init_position: [0.229, 0.414, 1.130]
