@@ -17,7 +17,7 @@ import pprint
 import rospy
 import sys
 import numpy as np
-from pyOpt import SLSQP, Optimization
+# from pyOpt import SLSQP, Optimization
 from geometry_msgs.msg import Point, Pose, PoseStamped, Vector3
 from leap_motion.msg import leapros, Human, Hand, Finger, Bone
 from allegro_hand_kdl.srv import PoseRequest, PoseRequestRequest, PoseRequestResponse
@@ -192,6 +192,7 @@ class Leap_Teleop_Allegro():
                     self.scale[finger_name] * finger.velocity[-1, :], time=time)
                 target_pose[0] = self.allegro_state[finger_name].ee_position * (1 - position_weight) + target_pose[0] * position_weight
             self.allegro_state[finger_name].goto(target_pose[0], target_pose[1])
+
 
 
     def publish_targets(self, markers, time):
