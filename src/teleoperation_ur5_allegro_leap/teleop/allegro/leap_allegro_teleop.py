@@ -17,7 +17,7 @@ import pprint
 import rospy
 import sys
 import numpy as np
-# from pyOpt import SLSQP, Optimization
+from scipy.optimize import minimize
 from geometry_msgs.msg import Point, Pose, PoseStamped, Vector3
 from leap_motion.msg import leapros, Human, Hand, Finger, Bone
 from allegro_hand_kdl.srv import PoseRequest, PoseRequestRequest, PoseRequestResponse
@@ -163,7 +163,7 @@ class Leap_Teleop_Allegro():
             if finger.name is not 'Thumb':
                 scale = 1.6
             else:
-                scale = 1.1
+                scale = 1.0
             target_pose = self.get_position_target(finger, scale)
             self.allegro_state[finger_name].goto(
                 target_pose[0],
@@ -193,7 +193,35 @@ class Leap_Teleop_Allegro():
                 target_pose[0] = self.allegro_state[finger_name].ee_position * (1 - position_weight) + target_pose[0] * position_weight
             self.allegro_state[finger_name].goto(target_pose[0], target_pose[1])
 
+    def correct_targets(self, eps=0.01):
+        def objfunc(x, hand_dists):
+            # hand_dists = pdist(hand_x.reshape(4, 3))
+            # print(x.shape)
+            # allegro_dists = pdist(x.reshape(4, 3), metric='cosine')
+            # f =  np.linalg.norm(allegro_dists - hand_dists) #+ np.linalg.norm(np.linalg.norm(x[-3:]) - hand_dists[-1])
+            f = cdist(x[np.newaxis,:], hand_dists[np.newaxis, :], metric='cosine')
+            return f
+        
+        allegro_pos = []
+        hand_pos = []
+        allegro_finger_sizes = []
+        for finger_name, finger in self.leap_hand_tracker.fingers.items():
+            allegro_pos.append(self.allegro_state[finger_name].ee_position)
+            hand_pos.append(finger.position[-1, :])
+            allegro_finger_sizes.append(self.allegro_state[finger_name].finger_length())
 
+        allegro_pos = np.concatenate(allegro_pos)
+        hand_pos = np.concatenate(hand_pos)
+        res = minimize(
+            # lambda x: objfunc(x, pdist(hand_pos.reshape(4, 3), metric='cosine')),
+            lambda x: objfunc(x, hand_pos),
+            x0=allegro_pos,
+            method='SLSQP',
+            bounds=[(allegro_pos[i] - eps, allegro_pos[i] + eps) for i in range(12)])
+
+        for i, (finger_name, finger) in enumerate(self.leap_hand_tracker.fingers.items()):
+            self.allegro_state[finger_name].ee_position = res.x.reshape(4, 3)[i, :]
+        # print(res.x.reshape(4,3))
 
     def publish_targets(self, markers, time):
         target_state = dict()
@@ -208,7 +236,7 @@ class Leap_Teleop_Allegro():
             elif self.control_type == self.Control_Type.position_velocity:
                 self.update_position_velocity_targets(time, position_weight=0.85)
 
-            # self.correct_targets()
+            self.correct_targets(eps=0.02)
 
             for finger_name, finger in self.leap_hand_tracker.fingers.items():
                 self.gen_finger_marker(

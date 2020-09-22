@@ -47,6 +47,7 @@ class Experiment_Panel(Toplevel):
         self.title('Experiment Starter: ' + name)
         self.window_frame = Frame(self)
         self.button_frame = Frame(self)
+        
 
         self.grasp_button = Button(self.button_frame, text='Start Grasping', 
             command=self.grasping_experiment, justify=CENTER, padx=5, pady=5)
@@ -252,6 +253,9 @@ class Experiments_GUI():
         self.tf_buffer = Buffer(rospy.Time(1000))
         self.tf_listener = TransformListener(self.tf_buffer)
         
+        self.default_pos = [0.0, 0.0, 0.0]
+        self.default_orient = [0.707, 0.0, -0.707, 0.0]
+
         with open(BASE_PATH + experiments_yaml_name) as ff:
             yaml_exp_data = yaml.load(ff)
             self.experiments_dict = dict([(experiment['name'], experiment) for experiment in yaml_exp_data['experiments']])
@@ -271,8 +275,9 @@ class Experiments_GUI():
         # self.event_catcher.menubar.add_cascade(label="Load Experiments", menu=self.experiment_menu)
 
     def load_experiment(self, experiment):
-        init = experiment['init_position']
-        self.moveit_gui.goto(init)
+        init_pos = experiment['init_position'] if 'init_position' in experiment else self.default_pos
+        init_orient = experiment['init_orientation'] if 'init_orientation' in experiment else self.default_orient
+        self.moveit_gui.goto(init_pos, init_orient)
         self.event_catcher.load_simulation(experiment['worldfile'])
         # bootstrap = [el for el in init]
         # bootstrap[2] += .3
