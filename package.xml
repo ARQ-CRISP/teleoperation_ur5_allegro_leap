@@ -48,19 +48,23 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <!-- This package is referenced in the warehouse launch files, but does not build out of the box at the moment. Commented the dependency until this works. -->
   <!-- <run_depend>warehouse_ros_mongo</run_depend> -->
+  <build_depend>ur5_allegro_moveit</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>rospy</build_depend>
   
   <exec_depend>joint_state_publisher</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>xacro</exec_depend>
-  <build_depend>ur5_allegro_moveit</build_depend>
   <exec_depend>ur5_allegro_moveit</exec_depend>
-  <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>roscpp</build_depend>
-  <build_depend>rospy</build_depend>
-  <build_export_depend>roscpp</build_export_depend>
-  <build_export_depend>rospy</build_export_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>rospy</build_export_depend>
+
 
 
   <!-- The export tag contains other, unspecified, tags -->
