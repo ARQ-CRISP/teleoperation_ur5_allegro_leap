@@ -3,6 +3,7 @@ from __future__ import print_function, division
 from Tkconstants import BOTTOM
 import rospy
 from std_msgs.msg import String
+from teleoperation_ur5_allegro_leap.msg import Experiment
 import numpy as np
 import os
 import yaml
@@ -102,8 +103,9 @@ class Experiment_Panel(Toplevel):
         grasp_countdown_label.pack(fill=X, pady=5, side=LEFT)
         hold_countdown_label.pack(fill=X, pady=5, side=LEFT)
         manipulation_countdown_label.pack(fill=X, pady=5, side=LEFT)
+        self.timers = {'ongoing': None, 'incoming': None}
 
-        self.exp_pub = rospy.Publisher('experiment_state', String, queue_size=1)
+        self.exp_pub = rospy.Publisher('experiment_state', Experiment, queue_size=100)
 
         self.success = [False, False, False]
         self.bind("<KeyPress>", master.keydown)
@@ -120,8 +122,7 @@ class Experiment_Panel(Toplevel):
         return np.array(xyzq)
     
     def obj_dist(self, to='palm_link'):
-        # palm = self.get_palm_pose()
-        # obj = self.get_object_pose()
+        
         diff = transform_to_list(self.tf_buffer.lookup_transform(
             to, 'object', rospy.Time(0), rospy.Duration(0.3)).transform)
         return np.linalg.norm(diff[0:3], 2)
@@ -144,104 +145,75 @@ class Experiment_Panel(Toplevel):
         self.success[2] = dist < 0.05
         self.manipulation_success_text.set('{:.3f}'.format(dist) + ' -> ' + str(self.success[2]))
 
+    def periodical_callback(self, callback, period_s, duration_s):
+        periodic = rospy.Timer(rospy.Duration(period_s), callback)
+        rospy.Timer(rospy.Duration(duration_s), callback=lambda t: periodic.shutdown(), oneshot=True)
+
     def experiment_countdown(self, fun, after_sec, string):
-        to_msec = 1000
         
-        after_sec -= 1
-        if after_sec >= 0:
-            string.set(str((after_sec)) + 's')
-            print(after_sec)
-            self.after(int(to_msec), self.experiment_countdown, fun, after_sec, string)
+        # self.periodical_callback(lambda time: string.set())
+        if self.timers['ongoing'] is not None:
+            self.timers['ongoing'].shutdown()
+
+        remain = round(min(1.0, after_sec), 3)
+        string.set(str((after_sec)) + 's')
+        if remain >= 1e-3:
+            print('Countdown: {:.3f}'.format(after_sec))
+            self.timers['ongoing'] = rospy.Timer(
+                rospy.Duration(remain), 
+                lambda x : self.experiment_countdown(fun, after_sec - remain, string), oneshot=True)
         else:
-            self.after(200, fun)
+            fun()
 
     def experiment_all(self):
         self.grasping_experiment()
-        self.after(int(2300 * self.seconds_to_closure), self.manipulation_experiment)
+        if self.timers['incoming'] is not None:
+            self.timers['incoming'].shutdown()
+
+        self.timers['incoming'] = rospy.Timer(
+            rospy.Duration(
+                2.2 * self.seconds_to_closure), callback=lambda x: self.manipulation_experiment(), oneshot=True)
+        # self.after(int(2300 * self.seconds_to_closure), self.manipulation_experiment)
 
     def grasping_experiment(self):
-        # self.start_recording('experiment_grasping_' + self.name, self.seconds_to_closure * 2.5)
-        # self.after(int(2.7 * self.seconds_to_closure * 1000), lambda: print('End of Rosbag Recording!'))
-        self.publish_experiment_state('experiment_manipulation_' + self.name, self.seconds_to_closure * 2.5)
+
         def move_arm_and_measure():
             self.moveit_gui.translate([0.0, 0.0, 0.15])
             self.after(500, self.check_grasp)
-            self.experiment_countdown(self.check_hold, self.seconds_to_closure  , self.hold_countdown_text)
+            self.experiment_countdown(self.check_hold, self.seconds_to_closure, self.hold_countdown_text)
+
+        self.publish_experiment_state('experiment_grasping_' + self.name, self.seconds_to_closure * 2.0)
         self.experiment_countdown(move_arm_and_measure, self.seconds_to_closure, self.grasp_countdown_text)
         # self.after(int(3 * self.seconds_to_closure * 1000), self.manipulation_experiment)
 
     def manipulation_experiment(self):
         # self.start_recording('experiment_manipulation_' + self.name, self.seconds_to_closure * 1.5)
         # self.after(int(2. * self.seconds_to_closure * 1000), lambda: print('End of Rosbag Recording!'))
-        self.publish_experiment_state('experiment_manipulation_' + self.name, self.seconds_to_closure * 1.5)
         def move_arm_and_measure():
             self.moveit_gui.translate([0.0, 0.0, -0.15])
             self.after(500, self.check_manipulation)
             
-        self.experiment_countdown(move_arm_and_measure, self.seconds_to_closure + 1, self.manipulation_countdown_text)
+        self.publish_experiment_state('experiment_manipulation_' + self.name, self.seconds_to_closure * 1)
+        self.experiment_countdown(move_arm_and_measure, self.seconds_to_closure, self.manipulation_countdown_text)
 
     def publish_experiment_state(self, msg_str, secs, begin=True):
-        s_to_ms = 1000
-        freq = 1.0/30
+
+        msg = Experiment()
+        msg.name = msg_str
+        msg.status = '[BEGIN]'
+        msg.header.stamp = rospy.Time().now()
+        self.exp_pub.publish(msg)
+
+        def send_experiment_msg(timer_event, name_experiment, status = '[ONGOING]'):
+            msg = Experiment()
+            msg.name = name_experiment
+            msg.status = status
+            msg.header.stamp = timer_event.current_expected
+            self.exp_pub.publish(msg)
         
-        t_left = secs - freq
-        msg = String()
-        if begin:
-            msg.data = '[BEGIN] ' + msg_str
-        if t_left > 0:
-            msg.data = '[ONGOING] ' + msg_str
-            self.exp_pub.publish(msg)
-            self.after(int(s_to_ms * freq), self.publish_experiment_state, msg_str, t_left, False)
-        else:
-            msg.data = '[ENDING] ' + msg_str
-            self.exp_pub.publish(msg)
+        self.periodical_callback(lambda x: send_experiment_msg(x, msg_str, '[ONGOING]'), 1/60., secs)
+        rospy.Timer(rospy.Duration(secs), callback=lambda x: send_experiment_msg(x, msg_str, '[ENDING]'), oneshot=True)
 
-    def experiment_button(self):
-        # self.event_catcher.after(500, lambda: self.do_calibrate(pose_name, Finger1, Finger2, eps))
-        # self.start_recording('experiment_' + self.name)
-        self.after(int(5.5 * self.seconds_to_closure * 1000), lambda: print('End of Rosbag Recording!'))
-        # self.after(int((5 * self.seconds_to_closure) * 1000) , self.stop_recording)
-
-        self.after(int(self.seconds_to_closure * 1000), lambda: self.moveit_gui.translate([0.0, 0.0, 0.15]))
-        self.after(int((self.seconds_to_closure + 0.5) * 1000) , self.check_grasp)
-
-        self.after(int((2 * self.seconds_to_closure) * 1000) , self.check_hold)
-
-        self.after(int(3 * self.seconds_to_closure * 1000), lambda: self.moveit_gui.translate([0.0, 0.0, -0.15]))
-        self.after(int((3 * self.seconds_to_closure + 0.5) * 1000) , self.check_manipulation)
-
-    def start_recording(self, filename, seconds=None):
-        # def end_recording_message():
-        #     print('End of Rosbag Recording!')
-        if seconds is None:
-            seconds = self.seconds_to_closure
-        base = os.path.expanduser('~/.ros/rosbags/')
-        if not os.path.exists(base):
-            os.makedirs(base)
-        i = 0
-        basename = base + filename.split('.')[0] + "_{:04d}.bag"
-        while os.path.exists(basename.format(i)) or os.path.exists((basename + ".active").format(i)):
-            i += 1
-        path = basename.format(i)
-        duration = "{:d}".format(int(5 * seconds))
-        command = "rosbag record --duration=" + duration + " -O " + path + ' ' + " ".join(TOPICS)
-            
-        command = shlex.split(command)
-        print('Recording: ' + filename)
-        self.rosbag_proc = subprocess.Popen(command)
-        # self.after(int(5 * self.seconds_to_closure), end_recording_message)
-
-    def stop_recording(self):
-        try:
-            self.rosbag_proc.send_signal(subprocess.signal.SIGINT)
-            # self.rosbag_proc.send_signal(subprocess.signal.SIGKILL)
-            self.rosbag_proc.terminate()
-            res = self.rosbag_proc.wait(0.5)
-            # self.rosbag_proc.poll()
-            self.rosbag_proc = None
-            print('Recording Ended!', res)
-        except :
-            print('Error in the stopping of the recording.')
 
 
 class Experiments_GUI():
@@ -277,6 +249,7 @@ class Experiments_GUI():
     def load_experiment(self, experiment):
         init_pos = experiment['init_position'] if 'init_position' in experiment else self.default_pos
         init_orient = experiment['init_orientation'] if 'init_orientation' in experiment else self.default_orient
+        
         self.moveit_gui.goto(init_pos, init_orient)
         self.event_catcher.load_simulation(experiment['worldfile'])
         # bootstrap = [el for el in init]
@@ -284,6 +257,9 @@ class Experiments_GUI():
         # self.moveit_gui.goto(bootstrap)
         # rospy.sleep(.5)
         def close_top_level():
+            for key, timer in self.top_level.timers.items():
+                if timer is not None:
+                    timer.shutdown()
             self.top_level.destroy()
             self.top_level = None
             print('Experiment closed!!!')

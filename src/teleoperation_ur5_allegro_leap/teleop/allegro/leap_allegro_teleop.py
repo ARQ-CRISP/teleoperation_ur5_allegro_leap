@@ -174,7 +174,7 @@ class Leap_Teleop_Allegro():
     def update_velocity_targets(self, time):
         if self.leap_hand_tracker.history_len > 1:
             for finger_name, finger in self.leap_hand_tracker.fingers.items():
-                if finger.history_len > 1:
+                if finger.velocity is not None:
                     self.allegro_state[finger_name].translate_by(
                         self.scale[finger_name] * finger.velocity[-1, :], time=time)
                     self.allegro_state[finger_name].ee_orientation = finger.orientation[-1, :]
@@ -187,7 +187,7 @@ class Leap_Teleop_Allegro():
             else:
                 scale = 1.1
             target_pose = self.get_position_target(finger, scale)
-            if finger.history_len > 1:
+            if finger.velocity is not None > 1:
                 self.allegro_state[finger_name].translate_by(
                     self.scale[finger_name] * finger.velocity[-1, :], time=time)
                 target_pose[0] = self.allegro_state[finger_name].ee_position * (1 - position_weight) + target_pose[0] * position_weight
