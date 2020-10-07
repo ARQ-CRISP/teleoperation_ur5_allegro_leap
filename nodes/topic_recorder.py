@@ -10,6 +10,7 @@ from tf2_ros import Buffer, TransformListener
 from kdl_control_tools.msg import WrenchArray
 import concurrent.futures
 from os import path
+import argparse
 from pickle import dump #, load
 # from tf2_msgs.msg import TFMessage
 # from std_msgs.msg import String
@@ -32,8 +33,7 @@ class Topic_Recorder():
         '/allegroHand_0/desired_forces': WrenchArray,
         '/allegroHand_0/joint_states': JointState,
         '/allegroHand_0/torque_cmd': JointState
-        # '/tf' : TFMessage,
-        # '/tf_static' : TFMessage
+        
     }
 
     TFS = [
@@ -196,24 +196,18 @@ class Topic_Recorder():
 
 class RecorderNode:
 
-    def __init__(self, polling_rate=80, buffer_duration_s=16):
+    def __init__(self, subj_name='', polling_rate=80, buffer_duration_s=16):
         rate = rospy.Rate(polling_rate)
         self.tf_buffer = Buffer(rospy.Duration(buffer_duration_s))
         self.tf_listener = TransformListener(self.tf_buffer)
         self.experiment_subscriber = rospy.Subscriber(
             'experiment_state', Experiment, callback=self.OnExperimentMessage, queue_size=100)
         self.record = dict()
-        
+        self.subj_name = subj_name
         self.last_time = rospy.Time().now()
         self.current_state = None
         rospy.spin()
-        # while not rospy.is_shutdown():
-        #     if (self.current_state == experiment_stages[0] or self.current_state == experiment_stages[1]):
-        #         self.last_time = rospy.Time().now()
-        #         if self.record is not None:
-        #             pass
-        #             # self.record.record_tfs_parallel(self.last_time, len(self.record.TFS))
-        # rate.sleep()
+        
 
     def onShutdown(self):
         rospy.loginfo('>>> Recorder tool closed!')
@@ -233,10 +227,9 @@ class RecorderNode:
             print('structures ready!')
 
         elif STATE == experiment_stages[1]:
-            # self.record.record_tfs_parallel(self.last_time, workers)
+            
             self.record[name].record_tfs(msg.header.stamp)
-            # pass
-            # self.record.record_tfs(self.last_time)
+            
 
         elif STATE == experiment_stages[2]:
             # self.record.record_tfs_parallel(self.last_time, workers)
@@ -260,14 +253,22 @@ class RecorderNode:
             
             result['rec_interval'] = [time.to_nsec() for time in self.record[name].recording_time]
             result['tf_comb'] = self.record[name].TFS
-
-            rospy.loginfo('saving file: ' + name + '_{:04d}'.format(fileidx) +'.pkl')
-            with open(name + '_{:04d}'.format(fileidx) +'.pkl', 'w') as dumpfile:
+            filename = name + '_{:04d}'.format(fileidx) +'.pkl'
+            if self.subj_name is not '':
+                filename = '_'.join([self.subj_name, filename])
+            rospy.loginfo('saving file: ' + filename)
+            with open(filename, 'w') as dumpfile:
                 dump(result, dumpfile)
             self.record[name] = None
             
 
 experiment_topic = 'experiment_state'
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(
+        prog='topic_recorder.py', description="records the topic data from the selected topics.")
+    parser.add_argument('-n', action='store', dest='subj_name', type=str, default='')
+
+    parse_res = parser.parse_args()
     rospy.init_node('topic_recorder')
-    node = RecorderNode()
+    node = RecorderNode(subj_name=parse_res.subj_name)
