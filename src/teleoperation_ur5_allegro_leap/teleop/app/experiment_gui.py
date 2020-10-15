@@ -1,16 +1,16 @@
 #! /usr/bin/env python
 from __future__ import print_function, division
-from Tkconstants import BOTTOM
+import numpy as np
 import rospy
 from std_msgs.msg import String
 from teleoperation_ur5_allegro_leap.msg import Experiment
-import numpy as np
-import os
 import yaml
 from tf2_ros import Buffer, TransformListener
 from key_event_catcher import EventCatcher
+from timer import RealTimer
 from rospkg.rospack import RosPack
 from Tkinter import Menu, Listbox, Frame, Button,  BOTH, TOP, LEFT, RIGHT, Toplevel, CENTER, Label, StringVar, RIDGE, X
+from Tkconstants import BOTTOM
 from moveit_commander.conversions import transform_to_list
 import numpy as np
 from functools import partial
@@ -146,8 +146,10 @@ class Experiment_Panel(Toplevel):
         self.manipulation_success_text.set('{:.3f}'.format(dist) + ' -> ' + str(self.success[2]))
 
     def periodical_callback(self, callback, period_s, duration_s):
-        periodic = rospy.Timer(rospy.Duration(period_s), callback)
-        rospy.Timer(rospy.Duration(duration_s), callback=lambda t: periodic.shutdown(), oneshot=True)
+        # periodic = rospy.Timer(rospy.Duration(period_s), callback)
+        periodic = RealTimer(rospy.Duration(period_s), callback)
+        # rospy.Timer(rospy.Duration(duration_s), callback=lambda t: periodic.shutdown(), oneshot=True)
+        RealTimer(rospy.Duration(duration_s), callback=lambda t: periodic.shutdown(), oneshot=True)
 
     def experiment_countdown(self, fun, after_sec, string):
         
@@ -159,7 +161,10 @@ class Experiment_Panel(Toplevel):
         string.set(str((after_sec)) + 's')
         if remain >= 1e-3:
             print('Countdown: {:.3f}'.format(after_sec))
-            self.timers['ongoing'] = rospy.Timer(
+            # self.timers['ongoing'] = rospy.Timer(
+            #     rospy.Duration(remain), 
+            #     lambda x : self.experiment_countdown(fun, after_sec - remain, string), oneshot=True)
+            self.timers['ongoing'] = RealTimer(
                 rospy.Duration(remain), 
                 lambda x : self.experiment_countdown(fun, after_sec - remain, string), oneshot=True)
         else:
@@ -170,9 +175,12 @@ class Experiment_Panel(Toplevel):
         if self.timers['incoming'] is not None:
             self.timers['incoming'].shutdown()
 
-        self.timers['incoming'] = rospy.Timer(
+        # self.timers['incoming'] = rospy.Timer(
+        #     rospy.Duration(
+        #         2.2 * self.seconds_to_closure), callback=lambda x: self.manipulation_experiment(), oneshot=True)
+        self.timers['incoming'] = RealTimer(
             rospy.Duration(
-                2.2 * self.seconds_to_closure), callback=lambda x: self.manipulation_experiment(), oneshot=True)
+                2.5 * self.seconds_to_closure), callback=lambda x: self.manipulation_experiment(), oneshot=True)
         # self.after(int(2300 * self.seconds_to_closure), self.manipulation_experiment)
 
     def grasping_experiment(self):
@@ -182,7 +190,7 @@ class Experiment_Panel(Toplevel):
             self.after(500, self.check_grasp)
             self.experiment_countdown(self.check_hold, self.seconds_to_closure, self.hold_countdown_text)
 
-        self.publish_experiment_state('experiment_grasping_' + self.name, self.seconds_to_closure * 2.0)
+        self.publish_experiment_state('experiment_grasping_' + self.name, self.seconds_to_closure * 2.1)
         self.experiment_countdown(move_arm_and_measure, self.seconds_to_closure, self.grasp_countdown_text)
         # self.after(int(3 * self.seconds_to_closure * 1000), self.manipulation_experiment)
 
@@ -190,10 +198,13 @@ class Experiment_Panel(Toplevel):
         # self.start_recording('experiment_manipulation_' + self.name, self.seconds_to_closure * 1.5)
         # self.after(int(2. * self.seconds_to_closure * 1000), lambda: print('End of Rosbag Recording!'))
         def move_arm_and_measure():
-            self.moveit_gui.translate([0.0, 0.0, -0.15])
-            self.after(500, self.check_manipulation)
+            # self.moveit_gui.translate([0.0, 0.0, -0.15])
+            # self.after(500, self.check_manipulation)
+            self.check_manipulation()
             
-        self.publish_experiment_state('experiment_manipulation_' + self.name, self.seconds_to_closure * 1)
+        self.publish_experiment_state('experiment_manipulation_' + self.name, self.seconds_to_closure * 1.3)
+        self.moveit_gui.translate([0.0, 0.0, -0.1])
+        # self.experiment_countdown(self.check_manipulation, self.seconds_to_closure, self.manipulation_countdown_text)
         self.experiment_countdown(move_arm_and_measure, self.seconds_to_closure, self.manipulation_countdown_text)
 
     def publish_experiment_state(self, msg_str, secs, begin=True):
@@ -208,11 +219,14 @@ class Experiment_Panel(Toplevel):
             msg = Experiment()
             msg.name = name_experiment
             msg.status = status
-            msg.header.stamp = timer_event.current_expected
+            msg.header.stamp = timer_event.rostime
+            msg.real_stamp = timer_event.current_expected
             self.exp_pub.publish(msg)
         
         self.periodical_callback(lambda x: send_experiment_msg(x, msg_str, '[ONGOING]'), 1/60., secs)
-        rospy.Timer(rospy.Duration(secs), callback=lambda x: send_experiment_msg(x, msg_str, '[ENDING]'), oneshot=True)
+        # rospy.Timer(rospy.Duration(secs), callback=lambda x: send_experiment_msg(x, msg_str, '[ENDING]'), oneshot=True)
+        RealTimer(rospy.Duration(secs), callback=lambda x: send_experiment_msg(x, msg_str, '[ENDING]'), oneshot=True)
+
 
 
 

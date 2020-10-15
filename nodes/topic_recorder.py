@@ -8,6 +8,7 @@ from sensor_msgs.msg import JointState
 from teleoperation_ur5_allegro_leap.msg import Experiment
 from tf2_ros import Buffer, TransformListener
 from kdl_control_tools.msg import WrenchArray
+from haptic_glove_ros.msg import Vibration
 import concurrent.futures
 from os import path
 import argparse
@@ -32,7 +33,8 @@ class Topic_Recorder():
         '/optoforce_wrench_3': WrenchStamped,
         '/allegroHand_0/desired_forces': WrenchArray,
         '/allegroHand_0/joint_states': JointState,
-        '/allegroHand_0/torque_cmd': JointState
+        '/allegroHand_0/torque_cmd': JointState,
+        '/vibration_state': Vibration
         
     }
 
@@ -99,16 +101,17 @@ class Topic_Recorder():
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             executor.map(store_lookup, range(len(self.TFS)))
     
-    def record_tfs(self, time):
+    def record_tfs(self, rostime, real_time=None):
         errors = []
         count_success = 0
         for i, (source, target) in enumerate(self.TFS):
                 # self.tf_buffer = Buffer()
             try:
                 STransform = self.tf_buffer.lookup_transform(
-                    target, source, time, rospy.Duration(.01))
+                    target, source, rostime, rospy.Duration(.01))
+                rt_data = None if real_time is None else real_time.to_nsec()
                 data_row = [
-                    STransform.header.stamp.to_nsec(), source, target] + transform_to_list(STransform.transform)
+                    STransform.header.stamp.to_nsec(), rt_data, source, target] + transform_to_list(STransform.transform)
                 self.data_containers['TFS'][i].append(data_row)
                 # print(len(self.data_containers['TFS'][i]))
                 count_success += 1
@@ -142,6 +145,11 @@ class Topic_Recorder():
             # cols += ['velocity_' + str(i) for i in range(int(array_length/3))]
             # table = pd.DataFrame(columns=cols).set_index('stamp')
             table = []
+        
+        elif top_type is Vibration:
+            
+            table = []
+
         else:
             table = None
             print(top_type, 'IT WAS NONE!')
@@ -192,6 +200,12 @@ class Topic_Recorder():
                 #         zip(self.data_containers[topic_name][i].columns, data_row)),
                 #     ignore_index=True
                 # )
+        elif topic_type is Vibration:
+
+            # print(msg)
+            data_row = [msg.header.stamp.to_nsec(), msg.header.seq, msg.header.frame_id] 
+            data_row += [pin for pin in msg.levels_per_pin]
+            self.data_containers[topic_name].append(data_row)
 
 
 class RecorderNode:
@@ -227,22 +241,28 @@ class RecorderNode:
             print('structures ready!')
 
         elif STATE == experiment_stages[1]:
-            
-            self.record[name].record_tfs(msg.header.stamp)
+            if self.record[name] is not None:
+                self.record[name].record_tfs(msg.header.stamp, msg.real_stamp)
             
 
         elif STATE == experiment_stages[2]:
             # self.record.record_tfs_parallel(self.last_time, workers)
-            self.record[name].record_tfs(msg.header.stamp)
+            self.record[name].record_tfs(msg.header.stamp, msg.real_stamp)
             self.record[name].recording_time[1] = msg.header.stamp
             for topic, subs in self.record[name].listeners.items():
                 subs.unregister()
                 print(topic, np.array(self.record[name].data_containers[topic]).shape)
             
-            fileidx = 0
-            while path.isfile(name + '_{:04d}_'.format(fileidx) +'.pkl'):
-                fileidx += 1
+            filename = name + '_{:04d}.pkl'
+            if self.subj_name is not '':
+                filename = '_'.join([self.subj_name, filename])
             
+            # .format(fileidx)
+            fileidx = 0
+            while path.isfile(filename.format(fileidx)):
+                fileidx += 1
+            filename = filename.format(fileidx)
+
             print('TFS', np.array(self.record[name].data_containers['TFS']).shape, np.array(self.record[name].data_containers['TFS'][0]).shape)
             for i, (source, dest) in enumerate(self.record[name].TFS):
                 print('|->\t', np.array(self.record[name].data_containers['TFS'][i]).shape)
@@ -253,9 +273,6 @@ class RecorderNode:
             
             result['rec_interval'] = [time.to_nsec() for time in self.record[name].recording_time]
             result['tf_comb'] = self.record[name].TFS
-            filename = name + '_{:04d}'.format(fileidx) +'.pkl'
-            if self.subj_name is not '':
-                filename = '_'.join([self.subj_name, filename])
             rospy.loginfo('saving file: ' + filename)
             with open(filename, 'w') as dumpfile:
                 dump(result, dumpfile)
