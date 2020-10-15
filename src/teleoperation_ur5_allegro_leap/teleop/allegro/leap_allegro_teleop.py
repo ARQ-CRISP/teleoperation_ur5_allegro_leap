@@ -236,7 +236,7 @@ class Leap_Teleop_Allegro():
             elif self.control_type == self.Control_Type.position_velocity:
                 self.update_position_velocity_targets(time, position_weight=0.85)
 
-            self.correct_targets(eps=0.02)
+            # self.correct_targets(eps=0.02)
 
             for finger_name, finger in self.leap_hand_tracker.fingers.items():
                 self.gen_finger_marker(
