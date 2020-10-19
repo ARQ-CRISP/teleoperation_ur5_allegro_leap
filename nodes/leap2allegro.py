@@ -49,7 +49,7 @@ if __name__ == "__main__":
     ec.set_status('Execution_Mode')
     ec.set_title('Teleop Controller')
     calib_gui = Calibration_GUI(allegro_teleop, ec)
-    movegrp_gui = Movegroup_GUI('ur5_arm', event_catcher=ec)
+    movegrp_gui = Movegroup_GUI('ur5_arm', event_catcher=ec, step=0.05)
     experiment_gui = Experiments_GUI(movegrp_gui, event_catcher=ec)
     ec.show_keybinders()
 

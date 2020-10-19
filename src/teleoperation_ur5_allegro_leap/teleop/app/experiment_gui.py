@@ -131,19 +131,25 @@ class Experiment_Panel(Toplevel):
         dist = self.obj_dist()
         print('Grasp Measurement')
         self.success[0] = dist < 0.12
-        self.grasp_success_text.set('{:.3f}'.format(dist) + ' -> ' + str(self.success[0]))
+        self.grasp_success_text.set(
+            '{:.3f}'.format(dist)# + ' -> ' + str(self.success[0])
+            )
 
     def check_hold(self):
         dist = self.obj_dist()
         print('Hold Measurement')
         self.success[1] = dist < 0.12
-        self.hold_success_text.set('{:.3f}'.format(dist) + ' -> ' + str(self.success[1]))
+        self.hold_success_text.set(
+            '{:.3f}'.format(dist)# + ' -> ' + str(self.success[1])
+            )
     
     def check_manipulation(self):
         dist = self.obj_dist('target')
         print('Manipulation Measurement')
-        self.success[2] = dist < 0.05
-        self.manipulation_success_text.set('{:.3f}'.format(dist) + ' -> ' + str(self.success[2]))
+        self.success[2] = dist > 0.05
+        self.manipulation_success_text.set(
+            '{:.3f}'.format(dist)# + ' -> ' + str(self.success[2])
+            )
 
     def periodical_callback(self, callback, period_s, duration_s):
         # periodic = rospy.Timer(rospy.Duration(period_s), callback)
