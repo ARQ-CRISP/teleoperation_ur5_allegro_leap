@@ -9,7 +9,7 @@
     <node pkg="tf" type="static_transform_publisher" name="base2common_world" args="0 0 0 0 0 0 1 base common_world  100" />
     <param name="robot_description" command="xacro --inorder '$(arg xacro_path)' $(arg urdf_args)"/>
     
-    <include file="$(find relaxed_leap_teleop)/launch/ur5_teleop.launch">
+    <include file="$(find teleoperation_ur5_allegro_leap)/launch/ur5_teleop.launch">
         <arg name="viz"   value="false"/>
         <arg name="load_xacro"   value="false"/>
         <arg name="leap_topic"   value="$(arg leap_topic)"/>
@@ -31,7 +31,7 @@
 
 
     <group if="$(arg viz)">
-        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find relaxed_leap_teleop)/rviz/teleop_viz.rviz" />
+        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find teleoperation_ur5_allegro_leap)/rviz/teleop_viz.rviz" />
     </group>
 
 

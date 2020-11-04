@@ -112,7 +112,7 @@
 
 
     <group if="$(arg viz)">
-        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find relaxed_leap_teleop)/rviz/teleop_viz.rviz" />
+        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find teleoperation_ur5_allegro_leap)/rviz/teleop_viz.rviz" />
     </group>
 
 

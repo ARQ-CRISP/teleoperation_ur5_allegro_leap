@@ -11,7 +11,7 @@
 
 
     <group if="$(arg start_leap)">
-        <include file="$(find relaxed_leap_teleop)/launch/leap_start.launch">
+        <include file="$(find teleoperation_ur5_allegro_leap)/launch/leap_start.launch">
             <arg name="leap_camera_mode"   value="False"/>
         </include>
     </group>
@@ -39,7 +39,7 @@
             </rosparam>
     </node> -->
 
-    <!-- <node pkg="relaxed_leap_teleop" type="leap_to_ur5.py" name="ur5_teleop" output="screen"> -->
+    <!-- <node pkg="teleoperation_ur5_allegro_leap" type="leap_to_ur5.py" name="ur5_teleop" output="screen"> -->
         <!-- <param name="leap_topic" type="str" value="$(arg leap_topic)" /> -->
         <!-- <param name="max_msg_age_in_sec" type="double" value="0.3" /> -->
         <!-- <param name="consumption_rate" type="double" value="30" /> -->
@@ -49,7 +49,7 @@
     <!-- </node> -->
 
     <group if="$(arg viz)">
-        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find relaxed_leap_teleop)/rviz/teleop_viz.rviz" />
+        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find teleoperation_ur5_allegro_leap)/rviz/teleop_viz.rviz" />
     </group>
 
 </launch>

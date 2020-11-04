@@ -27,7 +27,7 @@ if __name__ == "__main__":
     tf_listener = tf2_ros.TransformListener(tf_buffer)
     lefthand_mode = rospy.get_param('~left_hand', False)
     leap_topic = rospy.get_param('~leap_topic', '/leap_motion/leap_filtered')
-    package_path = RosPack().get_path('relaxed_leap_teleop')
+    package_path = RosPack().get_path('teleoperation_ur5_allegro_leap')
 
     calibration_file = package_path + '/config/calibration_allegro_states.pkl'
     with open(calibration_file, 'r') as ff:
