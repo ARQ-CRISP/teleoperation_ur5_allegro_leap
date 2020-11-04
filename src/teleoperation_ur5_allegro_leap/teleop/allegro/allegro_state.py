@@ -1,11 +1,11 @@
 #! /usr/bin/env python
-from numpy.testing._private.utils import measure
+# from numpy.testing._private.utils import measure
 import rospy
 import numpy as np
-from utils import list2ROSPose
+# from utils import list2ROSPose
 
-import tf
-import tf2_geometry_msgs
+# import tf
+# import tf2_geometry_msgs
 import tf2_ros
 from geometry_msgs.msg import Pose, PoseStamped
 from allegro_utils import allegro_finger2linklist, finger_allegro_idx, allegro_fingers
