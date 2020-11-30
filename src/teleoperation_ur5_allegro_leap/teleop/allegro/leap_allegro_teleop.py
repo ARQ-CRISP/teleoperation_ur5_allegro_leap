@@ -124,7 +124,8 @@ class Leap_Teleop_Allegro():
             pose,
             ref_frame='hand_root',
             name_space=leap_hand_str + finger_name,
-            RGBA=[1. - idx*.25, 1., 0. + idx*.25, .7])
+            RGBA=[1. - idx*.25, 1., 0. + idx*.25, .7],
+            scale=[0.02, 0.015, 0.01])
         markers.markers.append(m)
 
     def _OnLeapReceived(self, leap_human):
