@@ -33,14 +33,14 @@ class Calibration_GUI():
         self.event_catcher.bind_action('BackSpace', (None, 
             self.exit_calibration_mode), 'Exit Calibration mode', frame_name='Calibration')
         
-        self.event_catcher.bind_action('F1', (lambda: self.calibrate_procedure(
-            'index', 'Index', 'Thumb', eps=0.011), None), 'Calibrate Index', frame_name='Calibration')
+        # self.event_catcher.bind_action('F1', (lambda: self.calibrate_procedure(
+        #     'index', 'Index', 'Thumb', eps=0.011), None), 'Calibrate Index', frame_name='Calibration')
         
-        self.event_catcher.bind_action('F2', (lambda: self.calibrate_procedure(
-            'middle', 'Middle', 'Thumb', eps=0.011), None), 'Calibrate Middle', frame_name='Calibration')
+        # self.event_catcher.bind_action('F2', (lambda: self.calibrate_procedure(
+        #     'middle', 'Middle', 'Thumb', eps=0.011), None), 'Calibrate Middle', frame_name='Calibration')
         
-        self.event_catcher.bind_action('F3', (lambda: self.calibrate_procedure(
-            'ring', 'Ring', 'Thumb', eps=0.01), None), 'Calibrate Ring', frame_name='Calibration')
+        # self.event_catcher.bind_action('F3', (lambda: self.calibrate_procedure(
+        #     'ring', 'Ring', 'Thumb', eps=0.01), None), 'Calibrate Ring', frame_name='Calibration')
 
         self.event_catcher.bind_action('F6', (lambda: self.goto_open_hand()
             , None), 'Open Hand', frame_name='Calibration')
