@@ -19,7 +19,10 @@
     </include>
 
     <group>
- 
+        <include file="$(find allegro_hand_kdl)/launch/gravity_compensate.launch">
+          <!-- <arg name='TORQUE_TOPIC' value='/allegroHand_0/torque_cmd'/> -->
+        </include>
+        
         <include file="$(find allegro_hand_kdl)/launch/pose_action_server.launch" output="log">
             
             <arg name="NUM" value="0"/>
