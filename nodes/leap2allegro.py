@@ -36,8 +36,6 @@ if __name__ == "__main__":
             finger)) for key, finger in calibration_poses.items()])
     # keyboard = Controller()
 
-    set_calibration_pose_param(
-        calibration_poses, Leap_Teleop_Allegro.pose_param)
     allegro_teleop = Leap_Teleop_Allegro(
         tf_buffer, leap_topic, lefthand_mode, scale=[1.6, 1.6, 1.6, 1.6])
     allegro_teleop.goto_pose_by_name('relax')
