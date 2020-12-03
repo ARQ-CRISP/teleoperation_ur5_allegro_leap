@@ -32,10 +32,10 @@ from moveit_commander.conversions import pose_to_list
 # from kinematic_retargeting import kinematic_retargeting_pose_targets
 
 from visualization_msgs.msg import Marker, MarkerArray
-from utils import pose2str, generate_tf, generate_pose_marker, list2ROSPose, ROSPose2list, STransform2SPose
-from allegro_state import Allegro_Finger_State
-from allegro_utils import finger_allegro_idx, allegro_fingers, common_allegro_poses#, compute_target_state_relax, allegro_finger2linklist
-from leap_state import Leap_Hand_TF_Tracker
+from .utils import pose2str, generate_tf, generate_pose_marker, list2ROSPose, ROSPose2list, STransform2SPose
+from .allegro_state import Allegro_Finger_State
+from .allegro_utils import finger_allegro_idx, allegro_fingers, common_allegro_poses#, compute_target_state_relax, allegro_finger2linklist
+from .leap_state import Leap_Hand_TF_Tracker
 
 
 class Leap_Teleop_Allegro():
