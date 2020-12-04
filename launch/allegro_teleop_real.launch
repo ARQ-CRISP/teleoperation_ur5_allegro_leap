@@ -126,6 +126,7 @@
             
     </include>
 
+    <include file="$(find optoforce_publisher)/launch/optoforce_publisher.launch" output="log"/>
 
 
 </launch>
