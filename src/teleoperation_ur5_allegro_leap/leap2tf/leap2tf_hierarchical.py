@@ -6,11 +6,11 @@ from scipy.spatial.transform import Rotation as R
 import rospy
 import tf
 import tf2_ros
-import tf2_geometry_msgs
+# import tf2_geometry_msgs
 from geometry_msgs.msg import TransformStamped
-from leap_motion.msg import leapros, Human, Hand, Finger, Bone
-from tf.transformations import quaternion_from_matrix, quaternion_matrix, quaternion_multiply
-from leaptfutils import advertise_tf, get_hand_quaternion, basis_change, rotate_quat, rotate_vec_quat, quaternion_from_axis_angle
+from leap_motion.msg import  Human #, leapros, Hand, Finger, Bone
+from tf.transformations import quaternion_multiply #, quaternion_from_matrix, quaternion_matrix
+from leaptfutils import advertise_tf, basis_change, quaternion_from_axis_angle #, get_hand_quaternion,  rotate_quat, rotate_vec_quat
 
 
 class Leap_TF_Pub(object):
@@ -108,6 +108,10 @@ class Leap_TF_Pub(object):
                 wrist_quat = base_quat
                 center_source_frame = self.hands_frame
                 wrist_source_frame = side_str + self.fingers_frame_base_name
+            
+            else:
+                raise ValueError("Error: the hand root has been mistakenly set up! you can chose 'wrist' or 'center'")
+                # rospy.logerr()
 
             advertise_tf(wrist_xyz, wrist_quat, wrist_source_frame, side_str +
                          self.__wrist_name, leap_hand.header.stamp, self.tf_pub)
