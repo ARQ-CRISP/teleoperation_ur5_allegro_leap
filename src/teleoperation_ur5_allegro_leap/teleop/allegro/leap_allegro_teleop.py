@@ -63,10 +63,10 @@ class Leap_Teleop_Allegro():
         self.__calibration_mode = False
         if type(scale) is list and len(scale) == 4:
             self.scale = OrderedDict([(name, s) for name, s in zip(
-                ['Thumb', 'Index', 'Middle', 'Ring'], scale)])
+                allegro_fingers, scale)])
         elif type(scale) is float:
             self.scale = OrderedDict([(name, scale)
-                               for name in ['Thumb', 'Index', 'Middle', 'Ring']])
+                               for name in allegro_fingers])
         else:
             print('Error: scale should be a float or an array of dim 4!')
         rospy.loginfo(rospy.get_name() + ': Initialization....')
@@ -272,7 +272,7 @@ class Leap_Teleop_Allegro():
             desired (list of arrays, optional): The desired target of the pose action.
         """
         # feedback = PoseControlFeedback()
-
+        rospy.loginfo('Hello There!')
         if feedback.status.SUCCEEDED:
             for pose, finger_name in zip(feedback.cartesian_pose, allegro_fingers):
                 array_pos = np.array(pose_to_list(pose))[:3]
