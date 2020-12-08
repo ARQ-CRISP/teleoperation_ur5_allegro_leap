@@ -233,6 +233,7 @@ class Leap_Teleop_Allegro():
 
     def publish_targets(self, markers, time):
         target_state = dict()
+        posegoal = PoseControlGoal()
         if self.leap_hand_tracker.history_len > 0:
             if self.control_type == self.Control_Type.position:
                 self.update_position_targets(time)
@@ -246,7 +247,6 @@ class Leap_Teleop_Allegro():
 
             # self.correct_targets(eps=0.02)
 
-            posegoal = PoseControlGoal()
             # posegoal.cartesian_pose = [None] * 4
             for finger_name, finger in self.leap_hand_tracker.fingers.items():
                 finger_pose = self.allegro_state[finger_name].to_PoseStamped(time).pose
@@ -257,10 +257,10 @@ class Leap_Teleop_Allegro():
                 # target_state.update(
                 #     self.allegro_state[finger_name].to_target_dict(True))
             
-            self.__pose_action_client.send_goal(posegoal, feedback_cb=self.on_pose_goal_feedback)
 
         # print(self.allegro_state)
         if not self.__calibration_mode:
+            self.__pose_action_client.send_goal(posegoal, feedback_cb=self.on_pose_goal_feedback)
             self.advertise_targets(target_state)
         self.marker_pub.publish(markers)
 

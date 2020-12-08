@@ -29,16 +29,23 @@
                 <!-- <arg name="TF" value="false"/> -->
 
         </include>
-
-        <include file="$(find allegro_hand_kdl)/launch/cartesian_pose_control.launch">
-                <arg name="NUM" default="0"/>
-                <arg name="HAND" default="right"/>
-                <arg name="MAINTAIN" default="false" />
-                <!-- <arg name="POSE" default="relax" /> -->
-                <arg name="TIME_LIMIT" default="4.0" />
-                <arg name="NS_POSE" default="allegro_hand_kdl/poses" />
-                <arg name="TORQUE_TOPIC" default="position_torque"/>
+        <include file="$(find allegro_hand_kdl)/launch/pose_action_server.launch" output="log">
+            
+            <arg name="NUM" value="0"/>
+            <arg name="HAND" value="right"/>
+            <arg name="TIME_LIMIT" value="4.0" />
+            <arg name="TORQUE_TOPIC" value="position_torque"/>
+            
         </include>
+        <!-- <include file="$(find allegro_hand_kdl)/launch/cartesian_pose_control.launch"> -->
+                <!-- <arg name="NUM" default="0"/> -->
+                <!-- <arg name="HAND" default="right"/> -->
+                <!-- <arg name="MAINTAIN" default="false" /> -->
+                <!-- <arg name="POSE" default="relax" /> -->
+                <!-- <arg name="TIME_LIMIT" default="4.0" /> -->
+                <!-- <arg name="NS_POSE" default="allegro_hand_kdl/poses" /> -->
+                <!-- <arg name="TORQUE_TOPIC" default="position_torque"/> -->
+        <!-- </include> -->
 
         <include file="$(find allegro_hand_kdl)/launch/combine_torques.launch" output="log">
         </include>
@@ -119,6 +126,7 @@
             
     </include>
 
+    <include file="$(find optoforce_publisher)/launch/optoforce_publisher.launch" output="log"/>
 
 
 </launch>
