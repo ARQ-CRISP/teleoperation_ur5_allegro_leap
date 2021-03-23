@@ -10,16 +10,7 @@
     <arg name="debug_mode"   default="False"/>
 
     <group>
-        <!-- <node name="merged_joint_states_0" -->
-            <!-- type="merged_joint_states" -->
-            <!-- pkg="ur5_allegro_moveit"> -->
-            <!-- <remap from="ur5_js" to="move_group/fake_controller_joint_states"/> -->
-            <!-- <remap from="allegro_js" to="allegroHand_0/joint_states"/> -->
-
-            <!-- <remap from="joint_states" to="merged_states"/> -->
-
-            <!-- <param name="overwrite" value="false"/> -->
-        <!-- </node> -->
+    
         <include file="$(find ur5_allegro_moveit)/launch/ur5_allegro_bringup.launch">
           <arg name="robot_ip" value="177.22.22.11"/>
                 <!-- <arg name="sim"   value="True"/> -->
