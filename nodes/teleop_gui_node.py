@@ -22,7 +22,7 @@ from teleoperation_ur5_allegro_leap.teleop.allegro.calibration import listoffing
 
 if __name__ == "__main__":
 
-    rospy.init_node('allegro_teleop')
+    rospy.init_node('teleop_gui')
     tf_buffer = tf2_ros.Buffer(rospy.Duration(50))
     tf_listener = tf2_ros.TransformListener(tf_buffer)
     lefthand_mode = rospy.get_param('~left_hand', False)
@@ -34,23 +34,15 @@ if __name__ == "__main__":
         calibration_poses = load(ff)
         calibration_poses = dict([(key, listoffingers_to_dict(
             finger)) for key, finger in calibration_poses.items()])
-    # keyboard = Controller()
 
-    allegro_teleop = Leap_Teleop_Allegro(
-        tf_buffer, leap_topic, lefthand_mode, scale=[1.6, 1.6, 1.6, 1.6])
-    allegro_teleop.goto_pose_by_name('relax')
-    allegro_teleop
-    rospy.on_shutdown(allegro_teleop.on_shutdown)
-    rospy.spin()
-    # stop_calibration = False
 
-    # ec = EventCatcher(size=(300, 600))
-    # rospy.on_shutdown(ec.close_app)
-    # ec.set_status('Execution_Mode')
-    # ec.set_title('Teleop Controller')
-    # calib_gui = Calibration_GUI(ec)
-    # movegrp_gui = Movegroup_GUI('ur5_arm', event_catcher=ec, step=0.05)
-    # experiment_gui = Experiments_GUI(movegrp_gui, event_catcher=ec)
-    # ec.show_keybinders()
+    ec = EventCatcher(size=(300, 600))
+    rospy.on_shutdown(ec.close_app)
+    ec.set_status('Execution_Mode')
+    ec.set_title('Teleop Controller')
+    calib_gui = Calibration_GUI(ec)
+    movegrp_gui = Movegroup_GUI('ur5_arm', event_catcher=ec, step=0.05)
+    experiment_gui = Experiments_GUI(movegrp_gui, event_catcher=ec)
+    ec.show_keybinders()
 
-    # ec.mainloop()
+    ec.mainloop()

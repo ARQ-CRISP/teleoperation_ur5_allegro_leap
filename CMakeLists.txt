@@ -52,14 +52,19 @@ catkin_python_setup()
 add_message_files(
   FILES
   Experiment.msg
+  Control_Type.msg
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  Toggle_Tracking.srv
+  Toggle_Control.srv
+  Toggle_Calibration.srv
+  GoTo_ByName.srv
+  Update_Finger_Measure.srv
+  Get_Fingertip_Distance.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
