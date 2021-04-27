@@ -9,7 +9,7 @@ import tf2_ros
 # import tf2_geometry_msgs
 from geometry_msgs.msg import TransformStamped
 from leap_motion.msg import  Human #, leapros, Hand, Finger, Bone
-from tf.transformations import quaternion_multiply #, quaternion_from_matrix, quaternion_matrix
+from tf.transformations import quaternion_from_matrix, quaternion_multiply #, quaternion_from_matrix, quaternion_matrix
 from leaptfutils import advertise_tf, basis_change, quaternion_from_axis_angle #, get_hand_quaternion,  rotate_quat, rotate_vec_quat
 
 
@@ -167,8 +167,17 @@ class Leap_TF_Pub(object):
                 # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.1305262, 0, 0.9914449 ]) #15deg
                 # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.0871557, 0, 0.9961947 ]) #10deg
             else:
-                x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi/5.)
-                bone_quat = quaternion_multiply(bone_quat, x_quat)
+                M = np.eye(4)
+                n = np.cross(-bone_direction, -boneend_xyz/np.linalg.norm(boneend_xyz))
+                M[0, :-1] = - bone_direction
+                M[1, :-1] = -boneend_xyz/np.linalg.norm(boneend_xyz)
+                M[2, :-1] = n / np.linalg.norm(n)
+                if np.linalg.norm(n) > 1e-6 and False:
+                    bone_quat = quaternion_from_matrix(M)
+                    bone_quat /= np.linalg.norm(bone_quat)
+                else:
+                    x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi/5.)
+                    bone_quat = quaternion_multiply(bone_quat, x_quat)
                 # bone_quat = quaternion_multiply(bone_quat, [ 0, -0.3826834, 0, 0.9238795 ]) #-45deg
                 # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.3826834, 0, 0.9238795 ]) #45deg
                 # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.258819, 0, 0.9659258 ])  #30deg
