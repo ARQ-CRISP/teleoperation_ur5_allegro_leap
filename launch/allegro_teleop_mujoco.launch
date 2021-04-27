@@ -8,16 +8,17 @@
     <arg name="left_handed"   default="False"/>
     <arg name="joint_state_gui"   default="False"/>
     <arg name="debug_mode"   default="False"/>
+    <arg name="sim"   default="True"/>
     <arg name="world_name"   default="calibration-world.xml"/>
     
-
-    <include file="$(find allegro_mujoco)/launch/mujoco_ros_communication.launch">
-                <arg name="rviz"   value="false"/>
-                <arg name="render" value="true"/>
-                <arg name="load_robot" value="ur5_allegro"/>
-                <arg name="world_model_file" type="str" value="$(find allegro_mujoco)/config/worlds/$(arg world_name)" />
-    </include>
-
+    <group if="$(arg sim)"> 
+        <include file="$(find allegro_mujoco)/launch/mujoco_ros_communication.launch">
+                    <arg name="rviz"   value="false"/>
+                    <arg name="render" value="true"/>
+                    <arg name="load_robot" value="ur5_allegro"/>
+                    <arg name="world_model_file" type="str" value="$(find allegro_mujoco)/config/worlds/$(arg world_name)" />
+        </include>
+    </group>
     <group>
         <include file="$(find allegro_hand_kdl)/launch/gravity_compensate.launch">
           <!-- <arg name='TORQUE_TOPIC' value='/allegroHand_0/torque_cmd'/> -->
@@ -31,6 +32,7 @@
             <arg name="TORQUE_TOPIC" value="position_torque"/>
             
         </include>
+        
 
         <!-- <include file="$(find allegro_hand_kdl)/launch/cartesian_pose_control.launch"> -->
                 <!-- <arg name="NUM" default="0"/> -->
@@ -48,10 +50,10 @@
     </group>
     
 
-    <group if="$(arg load_xacro)">
+    <!-- <group if="$(arg load_xacro)"> -->
+        <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="base2common_world" args="0 0 0 0 0 0 1 base_link common_world" /> -->
+    <!-- </group> -->
 
-        <node pkg="tf2_ros" type="static_transform_publisher" name="base2common_world" args="0 0 0 0 0 0 1 base common_world" />
-    </group>
         <!-- <node pkg="tf" type="static_transform_publisher" name="leap_center2palm_link" args="0 0 0 0 0 0 1 leap_hand_center palm_link 100" /> -->
     <!-- <group> -->
         <!-- <include file="$(find ur5_allegro_moveit)/launch/planning_context.launch"> -->
