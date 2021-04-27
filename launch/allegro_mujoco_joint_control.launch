@@ -1,0 +1,37 @@
+<launch>
+    <arg name="xacro_path"   default="$(find ur5_allegro_moveit)/models/ur5_allegro.xacro" />
+    <arg name="urdf_args"   default=""/>
+    <arg name="load_xacro"   default="true"/>
+    <arg name="viz"   default="true"/>
+    <arg name="start_leap"   default="true"/>
+    <arg name="leap_topic"   default="/leap_motion/leap_filtered"/>
+    <arg name="left_handed"   default="False"/>
+    <arg name="joint_state_gui"   default="False"/>
+    <arg name="debug_mode"   default="False"/>
+    <arg name="sim"   default="True"/>
+    <arg name="world_name"   default="calibration-world.xml"/>
+    
+    <group if="$(arg sim)"> 
+        <include file="$(find teleoperation_ur5_allegro_leap)/launch/start_mujoco_sim.launch">
+                    <arg name="viz"   value="$(arg viz)"/>
+                    <!-- <arg name="render" value="true"/> -->
+                    <!-- <arg name="load_robot" value="ur5_allegro"/> -->
+                    <!-- <arg name="world_model_file" type="str" value="$(find allegro_mujoco)/config/worlds/$(arg world_name)" /> -->
+        </include>
+    </group>
+
+    <group>
+        
+        <include file="$(find allegro_hand_kdl)/launch/pose_action_server.launch" output="log">
+            
+            <arg name="NUM" value="0"/>
+            <arg name="HAND" value="right"/>
+            <arg name="TIME_LIMIT" value="4.0" />
+            <arg name="TORQUE_TOPIC" value="position_torque"/>
+            
+        </include>
+        
+        
+    </group>
+    
+</launch>
