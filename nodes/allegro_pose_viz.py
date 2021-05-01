@@ -8,11 +8,11 @@ last update: 13/04/21
 import numpy as np
 import rospy
 from rospkg.rospack import RosPack
-from teleoperation_ur5_allegro_leap.synergies import PrincipalComponentAnalysis, SynergyMapper
-from teleoperation_ur5_allegro_leap.synergies.app import SynergyController
+from teleoperation_ur5_allegro_leap.demonstrations.synergies import PrincipalComponentAnalysis, SynergyMapper
+from teleoperation_ur5_allegro_leap.demonstrations.app import SynergyController
 
 pkg_path = RosPack().get_path('teleoperation_ur5_allegro_leap')
-model_folder = pkg_path + '/src/teleoperation_ur5_allegro_leap/synergies/prelearnt/'
+model_folder = pkg_path + '/src/teleoperation_ur5_allegro_leap/demonstrations/synergies/prelearnt/'
 JOINT_NAMES = ['joint_{}'.format(i) for i in range(16)]
 
   
@@ -40,15 +40,7 @@ if __name__ == '__main__':
     
     rospy.on_shutdown(SyC.quit)
     # SyC.close()
-    # rospy.spin()
-    
-    # ec.bind_action('a', (lambda : print('you just pressed a'), None), 'abecedario')
-    # ec.bind_action('b', (lambda : print('you just pressed b'), None), 'bobba')
-    # ec.bind_action('F1', (lambda : print('you just pressed F1'), None), 'function')
-    # ec.bind_action('c', (None, (lambda : print('you just unpressed c'))), 'cocco')
-    # ec.bind_action('space', (None, (lambda : print('you just unpressed space'))), 'space')
-    # ec.bind_action('BackSpace', (None, (lambda : print('you just unpressed backspace'))), 'backspace')
-    # ec.show_keybinders()
+
     SyC.mainloop()
 
 
