@@ -13,11 +13,21 @@ class SynergyMapper():
         self.input_state = dict([(dim, val) for dim, val in zip(input_dims, [0.0] * len(input_dims))])
     
     def fit(self, X_train):
-        pc_data = self.mapper_model.fit_transform(X_train)
-        if self.mapper_model.n_components > 0:
-            self.input_dims = ['PC_{}'.format(i+1) for i in range(self.mapper_model.n_components)]
-            self.input_lims = [(float(l_bound), float(u_bound)) for l_bound, u_bound in zip(pc_data.min(axis=0), pc_data.max(axis=0))]
-            self.input_state = dict([(dim, val) for dim, val in zip(self.input_dims, [0.0] * len(self.input_dims))])
+        if self.mapper_model is not None:
+            pc_data = self.mapper_model.fit_transform(X_train)
+            if self.mapper_model.n_components > 0:
+                self.input_dims = ['PC_{}'.format(i+1) for i in range(self.mapper_model.n_components)]
+        else:
+            pc_data = X_train
+        self.input_lims = [(float(l_bound), float(u_bound)) for l_bound, u_bound in zip(pc_data.min(axis=0), pc_data.max(axis=0))]
+        self.input_state = dict([(dim, val) for dim, val in zip(self.input_dims, [0.0] * len(self.input_dims))])
+        # if self.mapper_model is not None:
+        #     pc_data = self.mapper_model.fit_transform(X_train)
+        #     self.input_lims = [(float(l_bound), float(u_bound)) for l_bound, u_bound in zip(pc_data.min(axis=0), pc_data.max(axis=0))]
+        #     if self.mapper_model.n_components > 0:
+        #         self.input_dims = ['PC_{}'.format(i+1) for i in range(self.mapper_model.n_components)]
+        # else:
+        #     pc_data = X_train
         
     def synergy_2_real(self, data=None):
         data = np.asarray([[self.input_state[dim] for dim in self.input_dims]]) if data is None else data

@@ -18,10 +18,11 @@ class Demonstration_Controller_Pipeline():
         self.traj_gen.fit(pc_episodes, t)
         
     def generate_gaus_joint_pos(self, t, joint_bounds=True):
-        avg_traj, std_traj = self.traj_gen.generate_trajectory_mean_var(t)
         
         if not joint_bounds:
+            avg_traj = self.traj_gen.generate_trajectory_mean_var(t, gen_std=False)
             return self.__convert_to_joints(avg_traj)
+        avg_traj, std_traj = self.traj_gen.generate_trajectory_mean_var(t)
         return self.__convert_to_joints(avg_traj, std_traj)
         
     def generate_posterior_joint_pos(self, t, n_samp=1):

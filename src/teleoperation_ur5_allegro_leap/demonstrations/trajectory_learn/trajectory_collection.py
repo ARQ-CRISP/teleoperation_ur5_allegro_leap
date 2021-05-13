@@ -3,6 +3,7 @@ from __future__ import print_function, division, absolute_import
 from paramz import model
 from .trajectory_learner import Trajectory_Learner
 from .independentGP_learner import IndependentGPTrajectoryLearner
+from .joint_trajectory import Joint_Trajectory
 
 class Trajectory_Collection_Learner(Trajectory_Learner):
     
@@ -40,7 +41,7 @@ class Trajectory_Collection_Learner(Trajectory_Learner):
         return self.models[self.model_idx].generate_trajectory_mean_var(t=t, gen_std=gen_std)
     
     def generate_posterior_traj(self, t=None, n_samp=1):
-        return self.models[self.model_idx].generate_posterior_traj(self, t=t, n_samp=n_samp)
+        return self.models[self.model_idx].generate_posterior_traj(t=t, n_samp=n_samp)
     
     def to_dict(self):
         model_dict = super(Trajectory_Collection_Learner, self).to_dict()
@@ -61,6 +62,10 @@ class Trajectory_Collection_Learner(Trajectory_Learner):
     def learner_mux(learner_type):
         if learner_type == IndependentGPTrajectoryLearner.__name__:
             return IndependentGPTrajectoryLearner
+        elif learner_type == Joint_Trajectory.__name__:
+            return Joint_Trajectory
         elif learner_type == Trajectory_Collection_Learner.__name__:
             return Trajectory_Collection_Learner
+        else:
+            raise ValueError('Type of model not supported! You may have to update the library!')
 

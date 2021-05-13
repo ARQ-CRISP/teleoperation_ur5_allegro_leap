@@ -9,10 +9,10 @@ from .trajectory_learner import Trajectory_Learner
 class IndependentGPTrajectoryLearner(Trajectory_Learner):
     
     def __init__(self, rbf_sigma=1e-2, noise_sigma=1e-2, lenghtscale=1e-2):
+        super(IndependentGPTrajectoryLearner, self).__init__()
         self.rbf_sigma = rbf_sigma
         self.noise_sigma = noise_sigma
         self.rbf_l = lenghtscale
-        super(IndependentGPTrajectoryLearner, self).__init__()
         
     def fit(self, X_train, t=None):
         self.n_dims = X_train.shape[1]

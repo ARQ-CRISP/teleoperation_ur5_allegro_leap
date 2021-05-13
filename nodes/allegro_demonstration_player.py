@@ -27,6 +27,11 @@ JOINT_NAMES = ['joint_{}'.format(i) for i in range(16)]
 
 collection = Trajectory_Collection_Learner.load(prelearnt_trajectories_path + '/pca_indGP_trajectory_gen.yaml')
 mapper = SynergyMapper.load(prelearnt_synergies_path + '/pca_synergy_mapper.yaml')
+# mapper = SynergyMapper(
+#             input_dims = [], 
+#             output_dims = JOINT_NAMES, mapper_model=None,
+#             input_lims=[])
+# collection = Trajectory_Collection_Learner.load(prelearnt_trajectories_path + '/joint_trajectories_user1.yaml')
 pipeline_loaded = Demonstration_Controller_Pipeline(mapper, collection)  
         
 trajectory = pipeline_loaded.generate_gaus_joint_pos(t = np.linspace(0, 1, 100)[:,None], joint_bounds=False)
