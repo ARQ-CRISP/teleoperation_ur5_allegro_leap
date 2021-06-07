@@ -33,11 +33,13 @@ class Relaxed_UR5_Connection():
     request_topic = ur5_teleop_prefix + 'ur5_pose_targets'
     marker_topic = ur5_teleop_prefix + 'target_marker_debug'
     
-    def __init__(self, init_state=[0., 0., 0., 0., 0., 0.], group_name='ur5_arm', debug_mode=False):
+    def __init__(self, init_state=[0., 0., 0., 0., 0., 0.], movegroup='ur5_arm', debug_mode=False):
         
         self.jangles = JointState()
         self.jangles.name = self.jnames
-        self.bias = Frame(Rotation.Quaternion(0.5, 0.5, 0.5, 0.5), Vector())
+        
+        self.rotation_bias = Frame(Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0))
+        
         self.posegoal = EEPoseGoals()
         self.posegoal.ee_poses.append(Pose())
         self.set_absolute_mode_flag(self.get_absolute_mode_flag()) # sets to default value
@@ -48,19 +50,16 @@ class Relaxed_UR5_Connection():
         
         self.debug_mode = debug_mode
         roscpp_initialize(sys.argv)
-        self.moveit_interface = MoveGroupCommander(group_name)
-        self.moveit_interface.set_end_effector_link('hand_root')
+        self.moveit_interface =  movegroup if isinstance(movegroup, MoveGroupCommander) else MoveGroupCommander(movegroup)
+        # self.moveit_interface.set_end_effector_link('hand_root')
         # print(self.moveit_interface.get_end_effector_link())
         self.moveit_interface.go(joints=init_state, wait=True) #go to the initial position requested to relaxed_ik
         self.OnSolutionReceived(JointAngles(angles=Float64(init_state)))
-        pose = self.moveit_interface.get_current_pose().pose #get the pose relative to world
-        # self.init_pose = np.array(pose_to_list(pose))
-        self.init_pose = pm.fromMsg(pose)
-        # 0.7071446353719505, 0., -0.7071446353719505, 0.
-        # 0.7071446353719505, 0., -0.7071446353719505, 0.
-        # self.bias = Frame(Rotation.Quaternion(0, 0, 0.7071068, 0.707106), Vector())
+        pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose #get the pose relative to world
         
-    
+        self.init_pose = pm.fromMsg(pose)
+        
+        
     def set_debug_properties(self):
         self.marker_target_pub = rospy.Publisher(self.marker_topic, PoseStamped, queue_size=1)
         self.target_marker = Marker()
@@ -99,19 +98,13 @@ class Relaxed_UR5_Connection():
         self.marker_target_pub.publish(tgt)
         
     def pose_to_world_frame(self, relative_pose):
-        # init_f = self.init_pose
-        # relative_f = relative_pose
-        world_f = self.init_pose * relative_pose #* self.bias)
-        # world_pose = list(world_f.p) + list(world_f.M.GetQuaternion())
-        
+        world_f = self.init_pose * relative_pose 
         return world_f
     
     def pose_to_relative_frame(self, world_pose):
-        world_f = world_pose
-        
-        
-        init_f = self.init_pose
-        init_2_target_f = (self.init_pose.Inverse() * world_pose) #* self.bias.Inverse()
+        # world_f = world_pose
+        # init_f = self.init_pose
+        init_2_target_f = (self.init_pose.Inverse() * world_pose) 
         return init_2_target_f
         
     def OnSolutionReceived(self, joint_angle_msg):
@@ -140,9 +133,16 @@ class Relaxed_UR5_Connection():
             )
      
     def correct_bias(self, frame):
-        bb = Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0)
+        """Corrects the rotation bias of the targets
+
+        Args:
+            frame (PyKDL.Frame): Frame of the target
+
+        Returns:
+            corrected_frame (PyKDL.Frame): Frame with corrected_bias
+        """
         # tgt = Frame(Rotation.Quaternion(0.5, 0.5, 0.5, -0.5)).Inverse() * Frame(bb) * frame * Frame(bb).Inverse()
-        return Frame(bb) * frame * Frame(bb).Inverse()
+        return  self.rotation_bias * frame * self.rotation_bias.Inverse()
     
     def listen(self):
         if self.ur5_target_subscriber is not None:
