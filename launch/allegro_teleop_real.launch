@@ -38,8 +38,7 @@
                 <!-- <arg name="TORQUE_TOPIC" default="position_torque"/> -->
         <!-- </include> -->
 
-        <include file="$(find allegro_hand_kdl)/launch/combine_torques.launch" output="log">
-        </include>
+        <include file="$(find allegro_hand_kdl)/launch/combine_torques.launch" />
     </group>
 
 
@@ -81,9 +80,7 @@
         <!-- <remap from="joint_states" to="allegroHand_0/joint_states"/> -->
         <!-- </node> -->
 
-        <include file="$(find allegro_hand_kdl)/launch/gravity_compensate.launch">
-          <!-- <arg name='TORQUE_TOPIC' value='/allegroHand_0/torque_cmd'/> -->
-        </include>
+        <include file="$(find allegro_hand_kdl)/launch/gravity_compensate.launch"/>
 
     </group>
 
@@ -95,8 +92,9 @@
             <arg name="leap_camera_mode"   value="False"/>
             <!-- <arg name="leap_hand_tf" value="0 0 0 0.7071067811865475 0.0 0.0 0.7071067811865476 world leap_hands"/> -->
             <!-- <arg name="leap_right_fingers_tf" value="0 0 0 0.5 -0.5 0.5 0.5 hand_root right_leap_fingers"/> -->
+            <arg name="leap_hand_tf" default="0 0 0 0.5000000532124816 0.5000000532124816 0.5 0.5000000532124816 world leap_hands"/>
+            <!-- <arg name="leap_hand_tf" default="0 0 0 -0.707 0.707 0.000 0.000 hand_root leap_hands"/> -->
             <arg name="leap_right_fingers_tf" value="0 0 0 0 0 0 1 hand_root right_leap_fingers"/>
-            <arg name="leap_hand_tf" default="0 0 0 -0.707 0.707 0.000 0.000 hand_root leap_hands"/>
             <!-- <arg name="leap_left_fingers_tf" value="0 0 0 0.5 0.5 0.5 0.5 world left_leap_fingers"/> -->
         </include>
     </group>
@@ -107,16 +105,11 @@
       <param name="leap_topic" type="str" value="$(arg leap_topic)" />
     </node>
 
-
-
     <group if="$(arg viz)">
         <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find teleoperation_ur5_allegro_leap)/rviz/teleop_viz.rviz" />
     </group>
 
-    <include file="$(find haptic_glove_ros)/launch/opto2glove.launch" output="screen">
-            
-    </include>
-
+    <include file="$(find haptic_glove_ros)/launch/opto2glove.launch" output="screen"/>
     <include file="$(find optoforce_publisher)/launch/optoforce_publisher.launch" output="log"/>
 
 

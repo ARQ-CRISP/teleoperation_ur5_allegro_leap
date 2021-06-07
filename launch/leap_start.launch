@@ -20,42 +20,27 @@
     <node pkg="leap_motion" type="leap_motion_visualizer_node" name="leap_visualizer" output="screen" />
     <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="leap2common_world" args="0 0 0 -1 0 0 0 common_world leap_hands" /> -->
 
-    
 
     <!-- Load the filter parameters and start the filter node -->
-    
-
     <rosparam file="$(find teleoperation_ur5_allegro_leap)/config/leap_filter_params.yaml" command="load" />
     <node pkg="leap_motion" type="leap_motion_filter_node" name="leap_filter" output="screen" />
-    <group>
-        
+    <group ns="leap_motion_tf">
         
         <node pkg="tf2_ros" type="static_transform_publisher" name="leaphand_framer" args="$(arg leap_hand_tf)" />
         <node pkg="tf2_ros" type="static_transform_publisher" name="leap_rightfingers_framer" args="$(arg leap_right_fingers_tf)" />
         <node pkg="tf2_ros" type="static_transform_publisher" name="leap_leftfingers_framer" args="$(arg leap_left_fingers_tf)" />
+        
         <node pkg="teleoperation_ur5_allegro_leap" type="leap2tf_hierarchical.py" name="leap2tf" output="screen"> 
-        <param name="hand_root" value="$(arg leap_hand_root)" />
-        <param name="publish_on" value="fixed" />
-        <param name="fixed_frame_name" value="$(arg leap_tf_hand_parent)" />
+            <param name="hand_root" value="$(arg leap_hand_root)" />
+            <param name="publish_on" value="fixed" />
+            <param name="fixed_frame_name" value="$(arg leap_tf_hand_parent)" />
         </node>
-        <!-- <node pkg="teleoperation_ur5_allegro_leap" type="leap_teleop_pose.py" name="leap_teleop_pose" output="screen"> -->
-            <!-- <param name="hand_parent" value="$(arg leap_tf_hand_parent)" /> -->
-            <!-- <param name="finger_parent" value="$(arg leap_finger_parent)" /> -->
-        <!-- </node> -->
+        
     </group>
+
     <group if="$(arg leap_camera_mode)">
         <node pkg="leap_motion" type="leap_motion_camera_node" name="leap_camera" output="screen"/>
         <node pkg="stereo_image_proc" type="stereo_image_proc" name="stereo_image" output="screen"/>
     </group>
-
-    <!-- <group ns="leap_motion"> -->
-        <!-- Start the node that gets raw images from the Leap Motion controller -->
-        <!-- <node pkg="leap_motion" type="leap_motion_camera_node" name="leap_camera" output="screen"/> -->
-
-        <!-- Start the node that generates the pointcloud and a tf to orientate it the right way-->
-        <!-- <node pkg="stereo_image_proc" type="stereo_image_proc" name="stereo_image" output="screen"/> -->
-        <!-- <node pkg="tf" type="static_transform_publisher" name="link2_broadcaster" args="0 0 0 0 0 1 0 world leap_pointcloud 100" /> -->
-    <!-- </group> -->
-
 
 </launch>

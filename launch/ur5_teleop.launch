@@ -1,55 +1,36 @@
 <launch>
     <arg name="xacro_path"   default="$(find ur5_allegro_moveit)/models/ur5_allegro.xacro" />
     <arg name="urdf_args"   default=""/>
-    <arg name="load_xacro"   default="true"/>
+    <arg name="load_moveit"   default="true"/>
     <arg name="viz"   default="true"/>
     <arg name="start_leap"   default="true"/>
     <arg name="leap_topic"   default="/leap_motion/leap_filtered"/>
     <arg name="left_handed"   default="False"/>
-    <arg name="joint_state_topic"   default="joint_states"/>
-    <arg name="joint_state_gui"   default="false"/>
-
-
-    <group if="$(arg start_leap)">
-        <include file="$(find teleoperation_ur5_allegro_leap)/launch/leap_start.launch">
-            <arg name="leap_camera_mode"   value="False"/>
-        </include>
-    </group>
 
     
 
-    <group if="$(arg load_xacro)">
-        <param name="robot_description" command="xacro --inorder '$(arg xacro_path)' $(arg urdf_args)"/>
-        <node pkg="tf2_ros" type="static_transform_publisher" name="base2common_world" args="0 0 0 0 0 0 1 world common_world" />
+    <include if="$(arg load_moveit)" file="$(find ur5_allegro_moveit)/launch/demo.launch">
+        <arg name="rviz" value="false"/>
+    </include>
+
+    <!-- <group if="$(arg viz)"> -->
+    <node name="teleop_rviz" pkg="rviz" type="rviz" if="$(arg viz)" args="-d $(find teleoperation_ur5_allegro_leap)/rviz/teleop_viz.rviz" />
+    <!-- </group> -->
+    
+    <group if="$(arg start_leap)">
+        <include file="$(find teleoperation_ur5_allegro_leap)/launch/leap_start.launch">
+            <arg name="leap_camera_mode"   value="False"/>
+            <arg name="leap_hand_root"   value="wrist"/>
+            <arg name="leap_tf_hand_parent" value="leap_hands" />
+            <arg name="leap_finger_parent" value="hand_root" />
+
+            <arg name="leap_hand_tf" default="0 0 0 0.5000000532124816 0.5000000532124816 0.5 0.5000000532124816 world leap_hands"/>
+            <arg name="leap_right_fingers_tf" value="0 0 0 0 0 0 1 hand_root right_leap_fingers"/>
+            <arg name="leap_left_fingers_tf" value="0 0 0 0.5 0.5 0.5 0.5 world left_leap_fingers"/>
+        </include>
     </group>
 
-    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" ns="/" >
-        <param name="publish_frequency" type="double" value="60.0" />
-        <param name="tf_prefix" type="string" value="" />
-    </node>
-
-    <!-- <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
-            <param name="use_gui" value="$(arg joint_state_gui)"/>
-            <rosparam param="source_list">[merged_states]</rosparam>
-            <rosparam param="zeros">
-            shoulder_pan_joint: -1.085
-            shoulder_lift_joint: -1.158
-            elbow_joint: 1.924
-            wrist_1_joint: 3.868
-            </rosparam>
-    </node> -->
-
-    <!-- <node pkg="teleoperation_ur5_allegro_leap" type="leap_to_ur5.py" name="ur5_teleop" output="screen"> -->
-        <!-- <param name="leap_topic" type="str" value="$(arg leap_topic)" /> -->
-        <!-- <param name="max_msg_age_in_sec" type="double" value="0.3" /> -->
-        <!-- <param name="consumption_rate" type="double" value="30" /> -->
-        <!-- <param name="lefthand_mode" type="bool" value="$(arg left_handed)" /> -->
-        <!-- <param name="debug_mode" type="bool" value="true" /> -->
-        <!-- <remap from="joint_states" to="$(arg joint_state_topic)"/> -->
-    <!-- </node> -->
-
-    <group if="$(arg viz)">
-        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find teleoperation_ur5_allegro_leap)/rviz/teleop_viz.rviz" />
-    </group>
-
+    <include file="$(find teleoperation_ur5_allegro_leap)/launch/ur5_relaxed_setup.launch">
+            <arg name="teleop_mode_absolute" value="true"/>
+    </include>
 </launch>

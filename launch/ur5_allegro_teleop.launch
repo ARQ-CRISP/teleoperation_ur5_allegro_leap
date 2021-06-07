@@ -4,31 +4,47 @@
     <arg name="viz"   default="true"/>
     <arg name="leap_topic"   default="/leap_motion/leap_filtered"/>
     <arg name="left_handed"   default="False"/>
+    <arg name="render"   default="true"/>
     <arg name="NUM" default="0"/>
-
-    <node pkg="tf" type="static_transform_publisher" name="base2common_world" args="0 0 0 0 0 0 1 base common_world  100" />
-    <param name="robot_description" command="xacro --inorder '$(arg xacro_path)' $(arg urdf_args)"/>
+    <arg name="world_name"   default="calibration-world.xml"/>
     
-    <include file="$(find teleoperation_ur5_allegro_leap)/launch/ur5_teleop.launch">
-        <arg name="viz"   value="false"/>
-        <arg name="load_xacro"   value="false"/>
-        <arg name="leap_topic"   value="$(arg leap_topic)"/>
-        <arg name="left_handed"   value="$(arg left_handed)"/>
-        <arg name="joint_state_topic"   value="$(arg ur5_js)"/>
+    
+    <include file="$(find allegro_mujoco)/launch/mujoco_ros_communication.launch">
+                    <arg name="rviz"   value="false"/>
+                    <arg name="render" value="$(arg render)"/>
+                    <arg name="load_robot" value="ur5_allegro"/>
+                    <arg name="world_model_file" type="str" value="$(find allegro_mujoco)/config/worlds/$(arg world_name)" />
     </include>
 
-    <node name="merged_joint_states_$(arg NUM)"
-            type="merged_joint_states"
-            pkg="ur5_allegro_moveit">
-            <!-- ASK GOKAN about these pieces -->
-            <remap from="ur5_js" to="move_group/fake_controller_joint_states"/>
-            <remap from="allegro_js" to="allegroHand_$(arg NUM)/joint_states"/>
+    <include file="$(find teleoperation_ur5_allegro_leap)/launch/ur5_teleop.launch">
+        <arg name="viz"   value="false"/>
+        <arg name="load_moveit"   value="false"/>
+        <arg name="start_leap"    value="false"/>
+        <arg name="leap_topic"    value="$(arg leap_topic)"/>
+        <arg name="left_handed"   value="$(arg left_handed)"/>
+    </include>
 
-            <remap from="joint_states" to="merged_states"/>
+    <include file="$(find teleoperation_ur5_allegro_leap)/launch/allegro_teleop_sim.launch">
+        <arg name="xacro_path"        value="$(find ur5_allegro_moveit)/models/ur5_allegro.xacro" />
+        <arg name="urdf_args"         value=""/>
+        <arg name="load_xacro"        value="true"/>
+        <arg name="viz"               value="false"/>
+        <arg name="start_leap"        value="false"/>
+        <arg name="sim"               value="False"/>
+    </include>
 
-            <param name="overwrite" value="false"/>
-    </node>
+    <group>
+        <include file="$(find teleoperation_ur5_allegro_leap)/launch/leap_start.launch">
+            <arg name="leap_camera_mode"   value="False"/>
+            <arg name="leap_hand_root"   value="wrist"/>
+            <arg name="leap_tf_hand_parent" value="leap_hands" />
+            <arg name="leap_finger_parent" value="hand_root" />
 
+            <arg name="leap_hand_tf" default="0 0 0 0.5000000532124816 0.5000000532124816 0.5 0.5000000532124816 world leap_hands"/>
+            <arg name="leap_right_fingers_tf" value="0 0 0 0 0 0 1 hand_root right_leap_fingers"/>
+            <arg name="leap_left_fingers_tf" value="0 0 0 0.5 0.5 0.5 0.5 world left_leap_fingers"/>
+        </include>
+    </group>
 
     <group if="$(arg viz)">
         <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find teleoperation_ur5_allegro_leap)/rviz/teleop_viz.rviz" />
