@@ -6,22 +6,24 @@ Leap based teleoperation package for the UR5 + Allegro Robot
 ## Requirements 
 
 in your catkin_ws/src folder, execute:
-'''bash
+```bash
 git clone -b personal_config https://github.com/Raziel90/relaxed_ik.git
 git clone https://github.com/ARQ-CRISP/allegro_hand_kdl.git
 git clone https://github.com/ARQ-CRISP/haptic_glove_ros.git
 git clone https://github.com/ARQ-CRISP/allegro_mujoco.git
-'''
+```
+
+
 follow the guide in those.
 
 
 ## Execution 
 ### Simulated
-'''bash
+```bash
 roslaunch teleoperation_ur5_allegro_leap ur5_allegro_teleop_mujoco.launch # full system
 roslaunch teleoperation_ur5_allegro_leap allegro_teleop_mujoco.launch # allegro teleop only
 roslaunch teleoperation_ur5_allegro_leap relaxed_setup.launch # ur5 teleop
-'''
+```
 
 ## Services
 
@@ -35,8 +37,8 @@ Update_Finger_Measure
 
 ## Dependencies 
 
-'''bash
+```bash
 sudo apt-get install ros-melodic-python-orocos-kdl
 sudo apt-get install ros-melodic-kdl-conversions
 sudo apt-get install ros-melodic-kdl-parser      
-'''
+```
