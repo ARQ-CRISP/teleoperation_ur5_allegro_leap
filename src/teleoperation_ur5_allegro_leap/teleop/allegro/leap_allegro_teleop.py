@@ -6,80 +6,119 @@ email: c.coppola@qmul.ac.uk
 last update: 15/11/19
 '''
 from __future__ import print_function, division
+from collections import OrderedDict
 import tf
-import tf2_geometry_msgs
-import tf2_ros
-import math
-from copy import deepcopy
+# import tf2_geometry_msgs
+# import tf2_ros
+from scipy.spatial.distance import pdist,cdist
+# from copy import deepcopy
+# import sys
 
 import pprint
 
 import rospy
-import sys
+import actionlib
 import numpy as np
-from geometry_msgs.msg import Point, Pose, PoseStamped, Vector3
+from scipy.optimize import minimize
+# from geometry_msgs.msg import Point, Pose, PoseStamped, Vector3
 from leap_motion.msg import leapros, Human, Hand, Finger, Bone
 from allegro_hand_kdl.srv import PoseRequest, PoseRequestRequest, PoseRequestResponse
+# from allegro_hand_kdl.msg import PoseControlActionGoal, PoseControlActionFeedback, PoseControlActionResult, PoseControlAction
+from allegro_hand_kdl.msg import PoseControlAction, PoseControlGoal, PoseControlResult, PoseControlFeedback
+from tf.transformations import quaternion_multiply
+from moveit_commander.conversions import pose_to_list
 # from moveit_commander.conversions import pose_to_list, list_to_pose, list_to_pose_stamped, transform_to_list, list_to_pose_stamped, list_to_transform
 # from scipy import optimize
-from kinematic_retargeting import kinematic_retargeting_pose_targets
-
+# from kinematic_retargeting import kinematic_retargeting_pose_targets
 from visualization_msgs.msg import Marker, MarkerArray
-from utils import pose2str, generate_tf, generate_pose_marker, list2ROSPose, ROSPose2list, STransform2SPose
-from allegro_state import Allegro_Finger_State
-from allegro_utils import allegro_finger2linklist, finger_allegro_idx, compute_target_state_relax
-from leap_state import Leap_Hand_TF_Tracker
+from teleoperation_ur5_allegro_leap.msg import Control_Type
+from teleoperation_ur5_allegro_leap.srv import Toggle_Tracking, Toggle_TrackingResponse
+from teleoperation_ur5_allegro_leap.srv import Toggle_Calibration, Toggle_CalibrationResponse
+from teleoperation_ur5_allegro_leap.srv import Toggle_Control, Toggle_ControlResponse
+from teleoperation_ur5_allegro_leap.srv import GoTo_ByName, GoTo_ByNameResponse
+from teleoperation_ur5_allegro_leap.srv import Get_Fingertip_Distance, Get_Fingertip_DistanceResponse
+from teleoperation_ur5_allegro_leap.srv import Update_Finger_Measure, Update_Finger_MeasureResponse
+
+
+from .utils import pose2str, generate_tf, generate_pose_marker, list2ROSPose, ROSPose2list, STransform2SPose
+from .allegro_state import Allegro_Finger_State
+from .allegro_utils import finger_allegro_idx, allegro_fingers, common_allegro_poses#, compute_target_state_relax, allegro_finger2linklist
+from .leap_state import Leap_Hand_TF_Tracker
+
+Controllers_Dict = {'position': Control_Type.position, 'velocity': Control_Type.velocity, 'position_velocity' : Control_Type.position_velocity}
 
 class Leap_Teleop_Allegro():
 
-    finger_allegro_idx = {'Index': 0, 'Middle': 1,
-                          'Ring': 2, 'Pinky': None, 'Thumb': 3}
+    finger_allegro_idx = finger_allegro_idx
+    # {'Index': 0, 'Middle': 1, 'Ring': 2, 'Pinky': None, 'Thumb': 3}
 
     pose_param = "/allegro_hand_kdl/poses/cartesian_poses/"
     pose_index = 2
     pose_cartesian_r_param = "/allegroHand_right_0/gains/cartesian/pose/r"
     control_base_frame = 'hand_root'
 
-    class Control_Type():
-        velocity = 0
-        position = 1
-
-    def __init__(self, tf_buffer, leap_topic='/leap_motion/leap_filtered', lefthand_mode=False, scale=1.0):
+    def __init__(self, tf_buffer, leap_topic='/leap_motion/leap_filtered', lefthand_mode=False, scale=1.0, control_type=Control_Type.position_velocity):
         self.__finger2linklist = None
         self.latest_teleop_state = None
-        self.control_type = self.Control_Type.velocity
+        self.__control_type = control_type
         self.tf_buffer = tf_buffer
-        self.marker_pub = rospy.Publisher('allegro_teleop_debug', MarkerArray, queue_size=5)
+        self.marker_pub = rospy.Publisher(
+            'allegro_teleop_debug', MarkerArray, queue_size=5)
         self.__calibration_mode = False
         if type(scale) is list and len(scale) == 4:
-            self.scale = dict([(name, s) for name, s in zip(['Thumb', 'Index', 'Middle', 'Ring'], scale)])
+            self.scale = OrderedDict([(name, s) for name, s in zip(
+                allegro_fingers, scale)])
         elif type(scale) is float:
-            self.scale = dict([(name, scale) for name in ['Thumb', 'Index', 'Middle', 'Ring']])
+            self.scale = OrderedDict([(name, scale)
+                               for name in allegro_fingers])
         else:
             print('Error: scale should be a float or an array of dim 4!')
         rospy.loginfo(rospy.get_name() + ': Initialization....')
         self.lefthand_mode = lefthand_mode
         self.leap_topic = leap_topic
         rospy.sleep(2.0)
-        self.init_allegro_tips = dict()
-        self.allegro_state = dict()
+        self.init_allegro_tips = OrderedDict()
+        self.allegro_state = OrderedDict()
         for finger_name, value in finger_allegro_idx.items():
             if value is not None:
-                self.allegro_state[finger_name] = Allegro_Finger_State(finger_name, self.tf_buffer)
+                self.allegro_state[finger_name] = Allegro_Finger_State(
+                    finger_name, self.tf_buffer)
+                
         self.leap_hand_tracker = Leap_Hand_TF_Tracker(
-            self.tf_buffer, #buffer recycling is good
-            self.control_base_frame, #hand_root
-            self.lefthand_mode, #same mode as teleop
-            tracked_fingers=[finger_name for finger_name, finger_idx in self.finger_allegro_idx.items() if finger_idx is not None], #Not tracking Pinky
-            tracked_sections=[3]) #Tracking only Fingertip
+            self.tf_buffer,  # buffer recycling is good
+            self.control_base_frame,  # hand_root
+            self.lefthand_mode,  # same mode as teleop
+            tracked_fingers=allegro_fingers, #tracks the fingers specified in allegro_utils
+            tracked_sections=[0, 1, 2, 3])  # Tracking only base and Fingertip
 
+        
         self.__leap_listener = rospy.Subscriber(
             self.leap_topic, Human, self._OnLeapReceived, queue_size=1)
+
+        self.__pose_action_client = actionlib.ActionClient('pose_control_action', PoseControlAction)
+        self.__pose_action_client.wait_for_server()
+        
+        self.__tracking_toggler = rospy.Service('allegro_teleop/toggle_tracking', Toggle_Tracking,
+                                                lambda update: Toggle_TrackingResponse( 
+                                                    self.toggle_tracking() if update.update else self.is_tracking))
+        self.__calibration_toggler = rospy.Service('allegro_teleop/toggle_calibration', Toggle_Calibration,
+                                                lambda update: Toggle_CalibrationResponse(
+                                                    self.toggle_calibration_mode() if update.update else self.is_calibrating))
+        self.__pose_by_name = rospy.Service('allegro_teleop/pose_by_name', GoTo_ByName,
+                                                lambda name: GoTo_ByNameResponse(self.goto_pose_by_name(name.posename)))
+        self.__set_controller = rospy.Service('allegro_teleop/set_controller', Toggle_Control,
+                                                lambda controller: Toggle_ControlResponse(self.set_control_type(controller.type_requested)))
+        self.__get_distance = rospy.Service('allegro_teleop/fingertip_distance', Get_Fingertip_Distance,
+                                                lambda data: Get_Fingertip_DistanceResponse(
+                                                    self.get_fingertip_distance(data.finger1, data.finger2)))
+        self.__update_measure = rospy.Service('allegro_teleop/fingertip_update', Update_Finger_Measure,
+                                                lambda data: Update_Finger_MeasureResponse(
+                                                    self.update_finger_measure(data.finger_name)))
 
     @property
     def leap_hand_str(self):
         return "left_" if self.lefthand_mode else "right_"
-    
+
     @property
     def is_calibrating(self):
         return self.__calibration_mode
@@ -88,12 +127,20 @@ class Leap_Teleop_Allegro():
     def is_tracking(self):
         return self.__leap_listener is not None
 
+    def set_control_type(self, control_type):
+        if int(control_type) in Controllers_Dict.values():
+            self.__control_type = control_type
+        control_name = [key for key, value in Controllers_Dict.items() if value==self.__control_type][0]
+        rospy.loginfo('Control type updated to {}'.format(control_name))
+        return self.__control_type
+
     def toggle_calibration_mode(self):
         rospy.loginfo('Allegro Teleop: switching calibration mode!')
         self.__calibration_mode = not self.__calibration_mode
+        return self.__calibration_mode
 
     def toggle_tracking(self):
-        if self.leap_listener is None:
+        if self.__leap_listener is None:
             rospy.loginfo('Allegro Teleop: Resuming Tracking!')
             self.__leap_listener = rospy.Subscriber(
                 self.leap_topic, Human, self._OnLeapReceived, queue_size=1)
@@ -101,7 +148,19 @@ class Leap_Teleop_Allegro():
             rospy.loginfo('Allegro Teleop: Tracking Interrupted!')
             self.__leap_listener.unregister()
             self.__leap_listener = None
+        return self.is_tracking
 
+    def get_fingertip_distance(self, Finger1, Finger2):
+        fing1 = self.leap_hand_tracker.fingers[Finger1].position[-1, :]
+        fing2 = self.leap_hand_tracker.fingers[Finger2].position[-1, :]
+        return np.linalg.norm(fing1 - fing2)
+    
+    def update_finger_measure(self, finger_name):
+        if self.__control_type in [Control_Type.velocity, Control_Type.position_velocity] and finger_name in self.allegro_state:
+            self.allegro_state[finger_name].update_measure()
+            return True
+        return False
+        
     def on_shutdown(self):
         rospy.loginfo(rospy.get_name() + ': Stop Listening leap data....')
         self.__leap_listener = None
@@ -115,7 +174,8 @@ class Leap_Teleop_Allegro():
             pose,
             ref_frame='hand_root',
             name_space=leap_hand_str + finger_name,
-            RGBA=[1. - idx*.25, 1., 0. + idx*.25, .7])
+            RGBA=[1. - idx*.25, 1., 0. + idx*.25, .7],
+            scale=[0.02, 0.015, 0.01])
         markers.markers.append(m)
 
     def _OnLeapReceived(self, leap_human):
@@ -132,50 +192,151 @@ class Leap_Teleop_Allegro():
             # Reset the state of the teleop otherwhise I am getting peaks in the derivative
             self.leap_hand_tracker.reset_history()
 
-    def publish_targets(self, markers, time):
-        if self.leap_hand_tracker.history_len > 0:
-            target_state = dict()
-            if self.control_type == self.Control_Type.position:
-                for finger_name, poses in self.leap_hand_tracker.pose.items():
-                        self.allegro_state[finger_name].update_measure(time)
-                        #TODO: complete everything
-                        # kinematic_retargeting_pose_targets(teleop_state)
+    def get_position_target(self, leap_finger, scale=1.6):
 
-            elif self.control_type == self.Control_Type.velocity:
+        ee_position = leap_finger.position[-1, :] * scale
+        magnitude = np.linalg.norm(ee_position)
+        relative_magnitude = magnitude / leap_finger.finger_length()
+        target_magnitude = relative_magnitude * \
+            self.allegro_state[leap_finger.name].finger_length()
+        direction = ee_position / magnitude
+        target_pos = direction * target_magnitude
+        target_orient = quaternion_multiply(
+            leap_finger.orientation[-1, :],
+            [0, 0.3826834, 0, 0.9238795])  # 45 deg
+
+        return [target_pos, target_orient]
+
+
+    def update_position_targets(self, time):
+
+        for finger_name, finger in self.leap_hand_tracker.fingers.items():
+            if finger.name is not 'Thumb':
+                scale = 1.6
+            else:
+                scale = 1.0
+            target_pose = self.get_position_target(finger, scale)
+            self.allegro_state[finger_name].goto(
+                target_pose[0],
+                target_pose[1],
+                time)
+
+
+    def update_velocity_targets(self, time):
+        if self.leap_hand_tracker.history_len > 1:
+            for finger_name, finger in self.leap_hand_tracker.fingers.items():
+                if finger.velocity is not None:
+                    self.allegro_state[finger_name].translate_by(
+                        self.scale[finger_name] * finger.velocity[-1, :], time=time)
+                    self.allegro_state[finger_name].ee_orientation = finger.orientation[-1, :]
+
+    def update_position_velocity_targets(self, time, position_weight=0.9):
+
+        for finger_name, finger in self.leap_hand_tracker.fingers.items():
+            if finger.name is not 'Thumb':
+                scale = 1.6
+            else:
+                scale = 1.1
+            target_pose = self.get_position_target(finger, scale)
+            if finger.velocity is not None > 1:
+                self.allegro_state[finger_name].translate_by(
+                    self.scale[finger_name] * finger.velocity[-1, :], time=time)
+                target_pose[0] = self.allegro_state[finger_name].ee_position * (1 - position_weight) + target_pose[0] * position_weight
+            self.allegro_state[finger_name].goto(target_pose[0], target_pose[1])
+
+    def correct_targets(self, eps=0.01):
+        def objfunc(x, hand_dists):
+            # hand_dists = pdist(hand_x.reshape(4, 3))
+            # print(x.shape)
+            # allegro_dists = pdist(x.reshape(4, 3), metric='cosine')
+            # f =  np.linalg.norm(allegro_dists - hand_dists) #+ np.linalg.norm(np.linalg.norm(x[-3:]) - hand_dists[-1])
+            f = cdist(x[np.newaxis,:], hand_dists[np.newaxis, :], metric='cosine')
+            return f
+        
+        allegro_pos = []
+        hand_pos = []
+        allegro_finger_sizes = []
+        for finger_name, finger in self.leap_hand_tracker.fingers.items():
+            allegro_pos.append(self.allegro_state[finger_name].ee_position)
+            hand_pos.append(finger.position[-1, :])
+            allegro_finger_sizes.append(self.allegro_state[finger_name].finger_length())
+
+        allegro_pos = np.concatenate(allegro_pos)
+        hand_pos = np.concatenate(hand_pos)
+        res = minimize(
+            # lambda x: objfunc(x, pdist(hand_pos.reshape(4, 3), metric='cosine')),
+            lambda x: objfunc(x, hand_pos),
+            x0=allegro_pos,
+            method='SLSQP',
+            bounds=[(allegro_pos[i] - eps, allegro_pos[i] + eps) for i in range(12)])
+
+        for i, (finger_name, finger) in enumerate(self.leap_hand_tracker.fingers.items()):
+            self.allegro_state[finger_name].ee_position = res.x.reshape(4, 3)[i, :]
+        # print(res.x.reshape(4,3))
+
+    def publish_targets(self, markers, time):
+        target_state = dict()
+        posegoal = PoseControlGoal()
+        if self.leap_hand_tracker.history_len > 0:
+            if self.__control_type == Control_Type.position:
+                self.update_position_targets(time)
+
+            elif self.__control_type == Control_Type.velocity:
                 if self.leap_hand_tracker.history_len > 1:
-                    
-                    for finger_name, finger in self.leap_hand_tracker.fingers.items():
-                        if finger.history_len > 1:
-                            self.allegro_state[finger_name].translate_by(self.scale[finger_name] * finger.velocity[-1, :])
-                            # self.allegro_state[finger_name].update_orient(time)
-                            self.allegro_state[finger_name].ee_orientation = finger.orientation[-1, :]
-                            self.gen_finger_marker(
-                                self.allegro_state[finger_name].to_PoseStamped(time).pose, markers, finger_name)
-                        target_state.update(self.allegro_state[finger_name].to_target_dict(True))
+                    self.update_velocity_targets(time)
+
+            elif self.__control_type == Control_Type.position_velocity:
+                self.update_position_velocity_targets(time, position_weight=0.85)
+
+            # self.correct_targets(eps=0.02)
+
+            # posegoal.cartesian_pose = [None] * 4
+            for finger_name, finger in self.leap_hand_tracker.fingers.items():
+                finger_pose = self.allegro_state[finger_name].to_PoseStamped(time).pose
+                self.gen_finger_marker(
+                    finger_pose, markers, finger_name)
+                posegoal.cartesian_pose.append(finger_pose)
+            
+
+        # print(self.allegro_state)
         if not self.__calibration_mode:
+            self.__pose_action_client.send_goal(posegoal, feedback_cb=self.on_pose_goal_feedback)
             self.advertise_targets(target_state)
         self.marker_pub.publish(markers)
+
+    def on_pose_goal_feedback(self, feedback):
+        """Callback for the feedback message in the PoseControlAction
+
+        Args:
+            feedback (PoseControlActionFeedback): Feedback from the PoseControlAction server
+            desired (list of arrays, optional): The desired target of the pose action.
+        """
+        # feedback = PoseControlFeedback()
+        if feedback.status.SUCCEEDED:
+            for pose, finger_name in zip(feedback.cartesian_pose, allegro_fingers):
+                array_pos = np.array(pose_to_list(pose))[:3]
+                desidered_pos = np.array(self.allegro_state[finger_name].ee_pose[:3])
+                distance = np.sqrt(((array_pos - desidered_pos)**2).sum())
+                if distance > 1e-3:
+                    rospy.logwarn('The distance of fo the reached point and the desidered position is above Threshold')
 
     def advertise_targets(self, target_state):
         rospy.logdebug("-"*50)
         rospy.logdebug(rospy.get_name() + ": advertising targets....")
-        rospy.set_param(self.pose_param + 'p{}/'.format(self.pose_index) + "name", "leap_pose")
-        rospy.set_param(self.pose_param + 'p{}/'.format(self.pose_index) + "state", target_state)
+        rospy.set_param(self.pose_param +
+                        'p{}/'.format(self.pose_index) + "name", "leap_pose")
+        rospy.set_param(self.pose_param +
+                        'p{}/'.format(self.pose_index) + "state", target_state)
         self.__last_advertised_terget = target_state
-        # print(rospy.get_param(pose_param + "state", "leap_pose"))
-        self.goto_pose_by_name('leap_pose')
 
-    def goto_pose_by_name(self, name='leap_pose'):
-        rospy.wait_for_service('/desired_cartesian_pose')
-        test = rospy.ServiceProxy('/desired_cartesian_pose', PoseRequest)
-        try:
-            # call the pose
-            request = PoseRequestRequest()
-            request.pose = name
-            request.behaviour = ''
-            request.active_fingers = []
-            query = test(request)
-            rospy.logdebug(rospy.get_name() + ": targets sent successfully!")
-        except rospy.ServiceException as exc:
-            rospy.logerr(
-                rospy.get_name() + ": Service did not process request: " + str(exc.message))
+
+
+    def goto_pose_by_name(self, name='relax'):
+        if name in common_allegro_poses.keys():
+            
+            self.__pose_action_client.send_goal(PoseControlGoal(cartesian_pose=common_allegro_poses[name]))#, feedback_cb=self.on_pose_goal_feedback)
+            return True
+        else:
+            rospy.logerr(rospy.get_name() + 'Impossible reaching the requested pose. The name {} is not defined!')
+            return False
+        

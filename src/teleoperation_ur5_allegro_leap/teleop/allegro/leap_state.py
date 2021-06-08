@@ -3,21 +3,17 @@ from __future__ import division, print_function
 
 import numpy as np
 import rospy
-import tf
-import tf2_geometry_msgs
 import tf2_ros
-from geometry_msgs.msg import Pose, PoseStamped
 from moveit_commander.conversions import (list_to_pose_stamped,
                                           transform_to_list)
 
-from allegro_utils import (allegro_finger2linklist, allegro_fingers,
-                           finger_allegro_idx)
-from utils import list2ROSPose
+from collections import OrderedDict
+from allegro_utils import allegro_fingers
 
 
 class Leap_Hand_TF_Tracker():
     """Leap_Hand_TF_Tracker
-    
+
     This Class manages the lifecycle of the leap finger tracking for all the fingers
     measure_state()     -- gets a new_measurement for all the fingers from the current TF
     reset_history()     -- resets the state of the tracking
@@ -31,7 +27,7 @@ class Leap_Hand_TF_Tracker():
     pose                -- (position, orientation)
     """
 
-    FINGER_ORDER = list(finger_allegro_idx.keys())
+    FINGER_ORDER = allegro_fingers
 
     def __init__(self, tf_buffer, base_frame='hand_root', left_hand_mode=False, tracked_fingers=None, tracked_sections=[3], history_len=3):
 
@@ -39,12 +35,12 @@ class Leap_Hand_TF_Tracker():
         self.tf_buffer = tf_buffer
         # self.last_measurement_time = time
         self.tracked_fingers = tracked_fingers if tracked_fingers is not None else self.FINGER_ORDER
-        self.fingers = dict([
+        self.fingers = OrderedDict([ #setting the fingers as the list of tracked fingers (Ordered dict, allows to get the items in the right order)
             (finger, Leap_Finger_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections)) for finger in self.tracked_fingers])
         self.left_hand_mode = left_hand_mode
-        
+
         # if measure_on_init:
-            # self.measure_state(time)
+        # self.measure_state(time)
 
     def measure_state(self, time):
         for finger_name, finger in self.fingers.items():
@@ -60,7 +56,7 @@ class Leap_Hand_TF_Tracker():
             finger_poses = finger.to_pose()
             if section_selection is not None:
                 fingers.append(finger_poses)
-            else:    
+            else:
                 fingers.append([finger_poses[i] for i in section_selection])
 
         return fingers
@@ -68,7 +64,8 @@ class Leap_Hand_TF_Tracker():
     def __str__(self):
         hand_str = 'LEFT' if self.left_hand_mode else 'RIGHT'
         if self.last_measure is not None:
-            message = ['--> {} HAND at time {:.3f}'.format(hand_str, self.last_measure.to_sec())]
+            message = [
+                '--> {} HAND at time {:.3f}'.format(hand_str, self.last_measure.to_sec())]
             for name, finger in self.fingers.items():
                 message.append(finger.__str__())
             message.append('\n-->\n')
@@ -87,28 +84,28 @@ class Leap_Hand_TF_Tracker():
     @property
     def position(self):
         if len(self.history_len) > 0:
-            return dict([(name, finger.position) for name, finger in self.fingers.items()])
+            return OrderedDict([(name, finger.position) for name, finger in self.fingers.items()])
         else:
             return None
 
     @property
     def orientation(self):
         if len(self.state) > 0:
-            return dict([(name, finger.orientation) for name, finger in self.fingers.items()])
+            return OrderedDict([(name, finger.orientation) for name, finger in self.fingers.items()])
         else:
             return None
 
     @property
     def velocity(self):
         if len(self.state) > 1:
-            return dict([(name, finger.velocity) for name, finger in self.fingers.items()])
+            return OrderedDict([(name, finger.velocity) for name, finger in self.fingers.items()])
         else:
             return None
 
     @property
     def velocity_normalised(self):
         if len(self.state) > 1:
-            return dict([(name, finger.velocity) for name, finger in self.fingers.items()])
+            return OrderedDict([(name, finger.velocity) for name, finger in self.fingers.items()])
         else:
             return None
 
@@ -131,6 +128,7 @@ class Leap_Finger_TF_Tracker():
         self.left_hand_mode = left_hand_mode
         self.base_frame = base_frame
         self.__max_history = history_len
+        self.__len = None
         if tracked_sections is None:
             self.tracked_sections = self.__section2str
         else:
@@ -140,7 +138,24 @@ class Leap_Finger_TF_Tracker():
         self.measurement_times = []
         self.state = []
         # if measure_on_init:
-            # self.measure_state(time)
+        # self.measure_state(time)
+
+    def finger_length(self):
+        if self.__len is None:
+            time = rospy.Time().now()
+            new_state = np.zeros((4, 7))
+            for i, section in enumerate(range(3)):
+                finger_joint = self.__leap_hand_str[int(self.left_hand_mode)] + \
+                    self.name + "_" + self.__section2str[section]
+                self.tf_buffer.can_transform(
+                    self.base_frame, finger_joint, time, rospy.Duration(0.1))
+                leap_section_transform = self.tf_buffer.lookup_transform(
+                    self.base_frame, finger_joint, time, rospy.Duration(0.2))
+                new_state[i, :] = np.array(transform_to_list(
+                    leap_section_transform.transform))
+            self.__len = np.linalg.norm(
+                np.diff(new_state[:, :3], axis=0), axis=1)[1:].sum()
+        return self.__len
 
     def measure_state(self, time):
 
@@ -149,7 +164,7 @@ class Leap_Finger_TF_Tracker():
             self.measurement_times.pop(0)
 
         new_state = np.zeros((len(self.tracked_sections), 7))
-        for i, section in enumerate(self.tracked_sections): # iterate over the finger_sections
+        for i, section in enumerate(self.tracked_sections):
             finger_joint = self.__leap_hand_str[int(self.left_hand_mode)] + \
                 self.name + "_" + section
             self.tf_buffer.can_transform(
@@ -166,6 +181,7 @@ class Leap_Finger_TF_Tracker():
         if self.history_len > 0:
             del self.state[:]
             self.last_measure = []
+            self.__len = None
 
     def to_pose(self):
         poses = []
@@ -176,7 +192,6 @@ class Leap_Finger_TF_Tracker():
             poses.append(new_pose)
 
         return poses
-
 
     @property
     def history_len(self):
@@ -235,7 +250,7 @@ class Leap_Finger_TF_Tracker():
                 message.append('section {} position: {:.3f}, {:.3f}, {:.3f}'.format(section,
                                                                                     *self.position[i, :].tolist()))
                 message.append('section {} orientation: {:.3f}, {:.3f}, {:.3f}'.format(section,
-                                                                                    *self.orientation[i, :].tolist()))
+                                                                                       *self.orientation[i, :].tolist()))
                 if self.history_len > 1:
                     message.append('velocity: {:.3f}, {:.3f}, {:.3f}'.format(
                         *self.velocity.tolist()[-1]))
@@ -249,7 +264,6 @@ class Leap_Finger_TF_Tracker():
 
 if __name__ == "__main__":
 
-    
     rospy.init_node('leap_tracker_tester')
     buffer = tf2_ros.Buffer(rospy.Duration(50))
     listener = tf2_ros.TransformListener(buffer)
@@ -283,4 +297,5 @@ if __name__ == "__main__":
         hand_tracker.measure_state(new_time)
         print('measurement {:d}'.format(i))
         print('tracked_history: {:d}'.format(hand_tracker.history_len))
-        print('latest_measurement: {}, {}'.format(new_time.to_sec(), hand_tracker.last_measure.to_sec()))
+        print('latest_measurement: {}, {}'.format(
+            new_time.to_sec(), hand_tracker.last_measure.to_sec()))

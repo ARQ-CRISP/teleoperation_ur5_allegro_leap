@@ -1,10 +1,11 @@
 #! /usr/bin/env python
+# from numpy.testing._private.utils import measure
 import rospy
 import numpy as np
-from utils import list2ROSPose
+# from utils import list2ROSPose
 
-import tf
-import tf2_geometry_msgs
+# import tf
+# import tf2_geometry_msgs
 import tf2_ros
 from geometry_msgs.msg import Pose, PoseStamped
 from allegro_utils import allegro_finger2linklist, finger_allegro_idx, allegro_fingers
@@ -72,12 +73,15 @@ class Allegro_Finger_State():
         self.last_time_measured = None
         self.__last_time_moved = None
         self.__last_movement = None
+        self.__len = None
         self.base_frame = base_frame
         self.name = finger_name
         self.buffer = tf_buffer
         self.logging = logging
         self.ee_position, self.ee_orientation = self.__measure_current_state(
             time)
+        self.base_position, self.base_orientation = self.__measure_current_state(
+            time, 0)
         rospy.loginfo(rospy.get_name() + '--> Initialization of ' + self.name +
                       " Completed! Measured at: " + str(self.last_time_measured.to_sec()))
 
@@ -95,6 +99,15 @@ class Allegro_Finger_State():
             ee_pose[0])
         self.ee_orientation = ee_pose[1] if ee_pose[1] is np.array else np.array(
             ee_pose[1])
+
+    # @property
+    def finger_length(self, force_measure=False):
+        if self.__len == None or force_measure:
+            self.__len = 0.0
+            for i in range(1, 5):
+                self.__len += np.linalg.norm(
+                    self.__measure_current_state(finger_section=i)[0] - self.__measure_current_state(finger_section=i-1)[0])
+        return self.__len
 
     def to_target_dict(self, rotation=False):
         target = dict()
@@ -143,17 +156,34 @@ class Allegro_Finger_State():
         self.__last_time_moved = rospy.Time.now() if time is None else time
         if self.logging:
             rospy.loginfo(rospy.get_name().split()[0] + '--> movement of ' + self.name +
-                        " by " + str(self.__last_movement.round(3)) +
-                        " Completed at: " + str(self.__last_time_moved.to_sec()))
+                          " by " + str(self.__last_movement.round(3)) +
+                          " Completed at: " + str(self.__last_time_moved.to_sec()))
+        return self
+
+    def goto(self, position, orientation, time=None):
+        if position is not np.array:
+            position = np.array(position)
+        translation = position - self.ee_position
+        self.ee_position = position
+        self.ee_orientation = orientation
+        self.__last_movement = translation
+        self.__last_time_moved = rospy.Time.now() if time is None else time
+        if self.logging:
+            rospy.loginfo(rospy.get_name().split()[0] + '--> movement of ' + self.name +
+                          " by " + str(self.__last_movement.round(3)) +
+                          " Completed at: " + str(self.__last_time_moved.to_sec()))
         return self
 
     def update_measure(self, time=None):
         time = rospy.Time.now() if time is None else time
         self.ee_position, self.ee_orientation = self.__measure_current_state(
             time)
+        self.base_position, self.base_orientation = self.__measure_current_state(
+            time, 0)
+
         if self.logging:
             rospy.loginfo(rospy.get_name() + '--> Update of ' + self.name +
-                        " Completed! Measured at: " + str(self.last_time_measured.to_sec()))
+                          " Completed! Measured at: " + str(self.last_time_measured.to_sec()))
 
     def update_orient(self, time=None):
         time = rospy.Time.now() if time is None else time
@@ -161,7 +191,7 @@ class Allegro_Finger_State():
             time)
         if self.logging:
             rospy.loginfo(rospy.get_name() + '--> Update of ' + self.name +
-                        " Completed! Measured at: " + str(self.last_time_measured.to_sec()))
+                          " Completed! Measured at: " + str(self.last_time_measured.to_sec()))
 
     def __measure_current_state(self, time=None, finger_section=-1):
 

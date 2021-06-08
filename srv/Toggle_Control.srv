@@ -1,0 +1,6 @@
+int32 control_velocity=0
+int32 control_position=1
+int32 control_position_velocity=2
+int32 type_requested
+---
+int32 current_type

@@ -52,7 +52,7 @@ def read_from_yaml(filename='leap_hands_transform.yaml'):
     RSP = RosPack()
     try:
             RSP = RosPack()
-            path = RSP.get_path('relaxed_leap_teleop') + '/config/'
+            path = RSP.get_path('teleoperation_ur5_allegro_leap') + '/config/'
     except ResourceNotFound:
         path = ''
     with open(path + filename, 'r') as ff:

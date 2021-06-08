@@ -49,7 +49,7 @@ if __name__ == "__main__":
     tf_listener = tf2_ros.TransformListener(tf_buffer)
     lefthand_mode = rospy.get_param('~left_hand', False)
     leap_topic = rospy.get_param('~leap_topic', '/leap_motion/leap_filtered')
-    package_path = RosPack().get_path('relaxed_leap_teleop')
+    package_path = RosPack().get_path('teleoperation_ur5_allegro_leap')
 
     fingertips = dict([('Index', 3), ('Middle', 7), ('Ring', 11), ('Thumb', 15)])
     root_link = 'hand_root'

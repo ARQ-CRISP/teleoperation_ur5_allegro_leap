@@ -1,0 +1,2 @@
+from synergy_controller_GUI import SynergyController
+from demonstration_player_GUI import DemonstrationPlayer

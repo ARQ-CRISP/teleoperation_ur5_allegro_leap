@@ -1,0 +1,43 @@
+experiment_settings:
+  sec_to_closure: 5.0
+  
+experiments:
+  - name: "cube-mid"
+    worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-box-cube-mid.xml'
+    init_position: [0.235, 0.414, 1.150]
+    init_orientation: [ 0.7660444, 0, -0.6427876, 0 ] # 80 deg
+    # init_orientation: [ 0.7933533, 0, -0.6087614, 0 ]
+
+  - name: "cube-small"
+    worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-box-cube-small.xml'
+    init_position: [0.235, 0.414, 1.140]
+    init_orientation: [ 0.7660444, 0, -0.6427876, 0 ] # 80 deg
+    # init_orientation: [ 0.7933533, 0, -0.6087614, 0 ]
+
+  - name: "cube-large"
+    worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-box-cube-large.xml'
+    init_position: [0.235, 0.410, 1.155]
+    init_orientation: [ 0.7660444, 0, -0.6427876, 0 ] # 80 deg
+    # init_orientation: [ 0.7933533, 0, -0.6087614, 0 ] # 75 deg
+
+  # - name: "sphere-mid"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-sphere.xml'
+  #   init_position: [0.229, 0.414, 1.132]
+  # - name: "sphere-small"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-sphere-small.xml'
+  #   init_position: [0.229, 0.414, 1.132]
+  # - name: "sphere-large"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-sphere-large.xml'
+  #   init_position: [0.229, 0.414, 1.132]
+  # - name: "cylinder"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-cylinder.xml'
+  #   init_position: [0.229, 0.414, 1.130]
+  # - name: "pyramid"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-pyramid.xml'
+  #   init_position: [0.229, 0.414, 1.130]
+  # - name: "cup"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-cup.xml'
+  #   init_position: [0.230, 0.414, 1.145]
+  # - name: "long-box"
+  #   worldfile: '/home/claudio/ros_ws/catkin_ws/src/allegro_mujoco/config/worlds/model-box-long.xml'
+  #   init_position: [0.229, 0.414, 1.130]

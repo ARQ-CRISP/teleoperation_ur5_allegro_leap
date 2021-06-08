@@ -8,10 +8,10 @@ last update: 5/10/18
 ######################################################################################################
 
 from __future__ import print_function
-from relaxed_leap_teleop.config import urdf_file_name, joint_names, joint_ordering, ee_fixed_joints, starting_config, \
-    joint_state_define, collision_file_name, fixed_frame, config_file_name
-from RelaxedIK.relaxedIK import RelaxedIK
-from relaxed_ik.msg import EEPoseGoals
+# from relaxed_leap_teleop.config import urdf_file_name, joint_names, joint_ordering, ee_fixed_joints, starting_config, \
+#     joint_state_define, collision_file_name, fixed_frame, config_file_name
+# from RelaxedIK.relaxedIK import RelaxedIK
+# from relaxed_ik.msg import EEPoseGoals
 
 import os
 import math
@@ -25,11 +25,11 @@ from geometry_msgs.msg import Pose, PoseStamped
 from sensor_msgs.msg import JointState
 from visualization_msgs.msg import Marker, MarkerArray
 import rospy
-import roslaunch
+# import roslaunch
 import rospkg
 import tf
-from abc import ABCMeta, abstractmethod
-from leap_motion.msg import leapros, Human, Hand, Finger, Bone
+# from abc import ABCMeta, abstractmethod
+# from leap_motion.msg import leapros, Human, Hand, Finger, Bone
 
 import tkinter as tk
 
@@ -155,7 +155,7 @@ class GUI(tk.Frame):
         return self.filename.get()
 
     def onSaveButtonPressed(self):
-        y,p,r = app.get_YPR()
+        y,p,r = self.get_YPR()
         rpy = [r*math.pi/180, p*math.pi/180, y*math.pi/180]
         translation = [0.0, 0.0, 0.0]
         quaternion = tf.transformations.quaternion_from_euler(rpy[0], rpy[1], rpy[2],'sxyz').tolist()
