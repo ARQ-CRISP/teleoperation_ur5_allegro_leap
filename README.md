@@ -28,13 +28,14 @@ roslaunch teleoperation_ur5_allegro_leap relaxed_setup.launch # ur5 teleop
 ## Services
 
 The GUI helps to control the teleop software. The changes are implemented as ROS Services. Those are:
+```
 Toggle_Tracking
 Toggle_Calibration
 Toggle_Control
 GoTo_ByName
 Get_Fingertip_Distance
 Update_Finger_Measure
-
+```
 ## Dependencies 
 
 ```bash
