@@ -13,6 +13,7 @@
     
         <include file="$(find ur5_allegro_moveit)/launch/ur5_allegro_bringup.launch">
           <arg name="robot_ip" value="177.22.22.11"/>
+          <arg name="limited" value="true"/>
                 <!-- <arg name="sim"   value="True"/> -->
                 <!-- <arg name="RVIZ"   value="false"/> -->
                 <!-- <arg name="xacro_path" value="$(arg xacro_path)"/> -->

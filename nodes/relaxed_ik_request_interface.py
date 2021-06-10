@@ -16,7 +16,7 @@ if __name__ == '__main__':
     with open(yaml_file_path) as f:
         yaml_file = yaml.load(f)
     
-    connection = Relaxed_UR5_Connection(init_state=yaml_file['starting_config'])
+    connection = Relaxed_UR5_Connection(init_state=yaml_file['starting_config'], movegroup='ur5_arm', sim=False)
     connection.listen()
     
     rospy.spin()

@@ -4,6 +4,8 @@ import numpy as np
 import sys
 
 import rospy
+import actionlib
+
 # from visualization_msgs.msg import Marker
 from PyKDL import Frame, Rotation, Vector
 from tf_conversions import posemath as pm
@@ -16,6 +18,9 @@ from std_msgs.msg import Float64
 from visualization_msgs.msg import Marker
 from relaxed_ik.msg import EEPoseGoals, JointAngles
 
+from control_msgs.msg import FollowJointTrajectoryGoal, FollowJointTrajectoryAction
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
 
@@ -25,6 +30,7 @@ class Relaxed_UR5_Connection():
               'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
     
     joint_states_topic = '/move_group/fake_controller_joint_states'
+    real_robot_action_server = 'follow_joint_trajectory'
     absolute_teleop_mode_rosparam = ur5_teleop_prefix + 'teleop_mode_absolute'
     
     relaxed_ik_pose_goals_topic = '/relaxed_ik/ee_pose_goals'
@@ -33,8 +39,8 @@ class Relaxed_UR5_Connection():
     request_topic = ur5_teleop_prefix + 'ur5_pose_targets'
     marker_topic = ur5_teleop_prefix + 'target_marker_debug'
     
-    def __init__(self, init_state=[0., 0., 0., 0., 0., 0.], movegroup='ur5_arm', debug_mode=False):
-        
+    def __init__(self, init_state=[0., 0., 0., 0., 0., 0.], movegroup='ur5_arm', sim=True, debug_mode=False):
+        self.sim = sim
         self.jangles = JointState()
         self.jangles.name = self.jnames
         
@@ -43,11 +49,13 @@ class Relaxed_UR5_Connection():
         self.posegoal = EEPoseGoals()
         self.posegoal.ee_poses.append(Pose())
         self.set_absolute_mode_flag(self.get_absolute_mode_flag()) # sets to default value
-        self.joint_target_pub = rospy.Publisher(self.joint_states_topic, JointState, queue_size=1)
+        
+        self.ur5_target_subscriber = None
+        self.joint_target_pub = None
+        self.set_controller_driver_connection()
         self.goal_pub = rospy.Publisher(self.relaxed_ik_pose_goals_topic, EEPoseGoals, queue_size=10)
         self.solution_sub = rospy.Subscriber(self.relaxed_ik_solutions_topic, JointAngles, self.OnSolutionReceived, queue_size=10)
-        self.ur5_target_subscriber = None
-        
+
         self.debug_mode = debug_mode
         roscpp_initialize(sys.argv)
         self.moveit_interface =  movegroup if isinstance(movegroup, MoveGroupCommander) else MoveGroupCommander(movegroup)
@@ -59,7 +67,17 @@ class Relaxed_UR5_Connection():
         
         self.init_pose = pm.fromMsg(pose)
         
-        
+
+    def set_controller_driver_connection(self):
+        if not self.sim:
+            self.joint_target_pub = actionlib.SimpleActionClient(self.real_robot_action_server, FollowJointTrajectoryAction)
+            print("Waiting for server...")
+            self.joint_target_pub.wait_for_server()
+            print("Connected to server") 
+        else:
+            self.joint_target_pub = rospy.Publisher(self.joint_states_topic, JointState, queue_size=1)
+
+
     def set_debug_properties(self):
         self.marker_target_pub = rospy.Publisher(self.marker_topic, PoseStamped, queue_size=1)
         self.target_marker = Marker()
@@ -114,8 +132,23 @@ class Relaxed_UR5_Connection():
             joint_angle_msg (relaxed_ik.msg.JointAngles): The JointAngles solution message
         """
         # print(joint_angle_msg.angles.data)
-        self.jangles.position = joint_angle_msg.angles.data
-        self.joint_target_pub.publish(self.jangles)
+        if self.sim:
+            self.jangles.position = joint_angle_msg.angles.data
+            self.joint_target_pub.publish(self.jangles)
+        else:
+            g = FollowJointTrajectoryGoal()
+            g.trajectory = JointTrajectory()
+            g.trajectory.joint_names = self.jnames
+            g.trajectory.points = [
+                JointTrajectoryPoint(
+                    positions=joint_angle_msg.angles.data,
+                    velocities=[0]*6, time_from_start=rospy.Duration(2.0))]
+            self.joint_target_pub.send_goal(g)
+            try:
+                self.joint_target_pub.wait_for_result()
+            except KeyboardInterrupt:
+                self.joint_target_pub.cancel_goal()
+                raise
         
     def OnPoseRequest(self, pose_stamped):
         request = pm.fromMsg(pose_stamped.pose)
