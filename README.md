@@ -9,6 +9,7 @@ in your catkin_ws/src folder, execute:
 ```bash
 git clone -b personal_config https://github.com/Raziel90/relaxed_ik.git
 git clone https://github.com/ARQ-CRISP/allegro_hand_kdl.git
+git clone https://github.com/ARQ-CRISP/kdl_control_tools.git
 git clone https://github.com/ARQ-CRISP/arq_ur5.git
 git clone https://github.com/ARQ-CRISP/haptic_glove_ros.git
 git clone https://github.com/ARQ-CRISP/allegro_mujoco.git
@@ -49,4 +50,8 @@ Update_Finger_Measure
 sudo apt-get install ros-melodic-python-orocos-kdl
 sudo apt-get install ros-melodic-kdl-conversions
 sudo apt-get install ros-melodic-kdl-parser      
+sudo apt install ros-melodic-moveit-commander
+
+pip install -U python-fcl
+pip install -U scikit-learn
 ```
