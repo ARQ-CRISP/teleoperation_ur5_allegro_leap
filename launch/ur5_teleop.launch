@@ -2,6 +2,7 @@
     <arg name="xacro_path"   default="$(find ur5_allegro_moveit)/models/ur5_allegro.xacro" />
     <arg name="urdf_args"   default=""/>
     <arg name="load_moveit"   default="true"/>
+    <arg name="sim"   default="true"/>
     <arg name="viz"   default="true"/>
     <arg name="start_leap"   default="true"/>
     <arg name="leap_topic"   default="/leap_motion/leap_filtered"/>
@@ -32,5 +33,6 @@
 
     <include file="$(find teleoperation_ur5_allegro_leap)/launch/ur5_relaxed_setup.launch">
             <arg name="teleop_mode_absolute" value="true"/>
+            <arg name="sim" value="$(arg sim)"/>
     </include>
 </launch>
