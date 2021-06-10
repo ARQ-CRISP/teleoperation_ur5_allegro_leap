@@ -9,8 +9,15 @@ in your catkin_ws/src folder, execute:
 ```bash
 git clone -b personal_config https://github.com/Raziel90/relaxed_ik.git
 git clone https://github.com/ARQ-CRISP/allegro_hand_kdl.git
+git clone https://github.com/ARQ-CRISP/arq_ur5.git
 git clone https://github.com/ARQ-CRISP/haptic_glove_ros.git
 git clone https://github.com/ARQ-CRISP/allegro_mujoco.git
+git clone https://github.com/ARQ-CRISP/ur5_allegro_moveit.git
+git clone https://github.com/ARQ-CRISP/ros_topic_connector.git
+git clone https://github.com/gokhansolak/allegro-hand-ros.git
+git clone https://github.com/ros-drivers/leap_motion.git
+git clone https://github.com/ARQ-CRISP/optoforce_publisher.git
+git clone https://github.com/ARQ-CRISP/arq_ur5.git
 ```
 
 
