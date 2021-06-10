@@ -23,14 +23,15 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
-
+jorder = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+realj = [2.3744237422943115, -2.0752771536456507, -1.7465012709247034, -0.8918698469745081, 1.5678939819335938, 0.013490866869688034]
 class Relaxed_UR5_Connection():
     
     jnames = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 
               'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
     
     joint_states_topic = '/move_group/fake_controller_joint_states'
-    real_robot_action_server = 'follow_joint_trajectory'
+    real_robot_action_server = '/scaled_pos_joint_traj_controller/follow_joint_trajectory'
     absolute_teleop_mode_rosparam = ur5_teleop_prefix + 'teleop_mode_absolute'
     
     relaxed_ik_pose_goals_topic = '/relaxed_ik/ee_pose_goals'
@@ -43,7 +44,7 @@ class Relaxed_UR5_Connection():
         self.sim = sim
         self.jangles = JointState()
         self.jangles.name = self.jnames
-        
+        self.jangles.position = init_state
         self.rotation_bias = Frame(Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0))
         
         self.posegoal = EEPoseGoals()
@@ -61,7 +62,7 @@ class Relaxed_UR5_Connection():
         self.moveit_interface =  movegroup if isinstance(movegroup, MoveGroupCommander) else MoveGroupCommander(movegroup)
         # self.moveit_interface.set_end_effector_link('hand_root')
         # print(self.moveit_interface.get_end_effector_link())
-        self.moveit_interface.go(joints=init_state, wait=True) #go to the initial position requested to relaxed_ik
+        self.moveit_interface.go(joints=self.jangles, wait=True) #go to the initial position requested to relaxed_ik
         self.OnSolutionReceived(JointAngles(angles=Float64(init_state)))
         pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose #get the pose relative to world
         
@@ -71,9 +72,9 @@ class Relaxed_UR5_Connection():
     def set_controller_driver_connection(self):
         if not self.sim:
             self.joint_target_pub = actionlib.SimpleActionClient(self.real_robot_action_server, FollowJointTrajectoryAction)
-            print("Waiting for server...")
+            rospy.loginfo("[" + rospy.get_name() + "]" + " Waiting for server...")
             self.joint_target_pub.wait_for_server()
-            print("Connected to server") 
+            rospy.loginfo("[" + rospy.get_name() + "]" + " Connected to Robot!") 
         else:
             self.joint_target_pub = rospy.Publisher(self.joint_states_topic, JointState, queue_size=1)
 
@@ -132,6 +133,8 @@ class Relaxed_UR5_Connection():
             joint_angle_msg (relaxed_ik.msg.JointAngles): The JointAngles solution message
         """
         # print(joint_angle_msg.angles.data)
+        
+        print(np.asarray(joint_angle_msg.angles.data).round(3),np.asarray(self.moveit_interface.get_joint_value_target()).round(3))
         if self.sim:
             self.jangles.position = joint_angle_msg.angles.data
             self.joint_target_pub.publish(self.jangles)
@@ -142,13 +145,15 @@ class Relaxed_UR5_Connection():
             g.trajectory.points = [
                 JointTrajectoryPoint(
                     positions=joint_angle_msg.angles.data,
-                    velocities=[0]*6, time_from_start=rospy.Duration(2.0))]
-            self.joint_target_pub.send_goal(g)
+                    velocities=[0]*6, time_from_start=rospy.Duration(200.0))]
+            # self.joint_target_pub.send_goal(g)
             try:
                 self.joint_target_pub.wait_for_result()
             except KeyboardInterrupt:
                 self.joint_target_pub.cancel_goal()
                 raise
+        
+
         
     def OnPoseRequest(self, pose_stamped):
         request = pm.fromMsg(pose_stamped.pose)
