@@ -56,7 +56,8 @@ class Relaxed_UR5_Connection():
         self.joint_target_pub = None
         self.set_controller_driver_connection()
         self.goal_pub = rospy.Publisher(self.relaxed_ik_pose_goals_topic, EEPoseGoals, queue_size=10)
-        self.solution_sub = rospy.Subscriber(self.relaxed_ik_solutions_topic, JointAngles, self.OnSolutionReceived, queue_size=10)
+        self.solution_sub = rospy.Subscriber(
+            self.relaxed_ik_solutions_topic, JointAngles, self.OnSolutionReceived, queue_size=1)
 
         self.debug_mode = debug_mode
         roscpp_initialize(sys.argv)
@@ -137,9 +138,14 @@ class Relaxed_UR5_Connection():
         # print(joint_angle_msg.angles.data)
         
         print(np.asarray(joint_angle_msg.angles.data).round(3) - np.asarray(self.moveit_interface.get_current_joint_values()).round(3))
+        jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)
         if self.sim:
+            # for k, jnts in enumerate(jnt_pts[-1:]):
             self.jangles.position = joint_angle_msg.angles.data
+            self.jangles.header.stamp = rospy.Time.now()
+            # self.jangles.header.seq = k
             self.joint_target_pub.publish(self.jangles)
+                # rospy.sleep(0.0000001)
         else:
             g = FollowJointTrajectoryGoal()
             g.trajectory = JointTrajectory()
@@ -147,15 +153,22 @@ class Relaxed_UR5_Connection():
             g.trajectory.points = [
                 JointTrajectoryPoint(
                     positions=joint_angle_msg.angles.data,
-                    velocities=[0]*6, time_from_start=rospy.Duration(200.0))]
-            # self.joint_target_pub.send_goal(g)
+                    velocities=[0]*6, time_from_start=rospy.Duration(0.1))]
+            self.joint_target_pub.send_goal(g)
             try:
                 self.joint_target_pub.wait_for_result()
             except KeyboardInterrupt:
                 self.joint_target_pub.cancel_goal()
                 raise
         
-
+    def make_joint_trajectory(self, target, steps=3):
+        source = self.moveit_interface.get_current_joint_values()
+        tgt = np.asarray(target)
+        p = np.linspace(0, 1., steps)
+        pts = np.zeros(steps, tgt.shape[0])
+        pts = p * tgt + (1-p) * source
+        # pts = np.linspace(source, target, steps).tolist()
+        return pts.tolist()
         
     def OnPoseRequest(self, pose_stamped):
         request = pm.fromMsg(pose_stamped.pose)
@@ -167,9 +180,10 @@ class Relaxed_UR5_Connection():
             
             self.send_marker(
                 pm.toMsg(self.correct_bias(request)), 'hand_root')
-            
+        corrected = self.correct_bias(request)
+        # corrected.p *= 0.1    
         self.goto_pose(
-            self.correct_bias(request)
+            corrected
             )
      
     def correct_bias(self, frame):
