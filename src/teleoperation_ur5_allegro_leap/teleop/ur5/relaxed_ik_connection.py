@@ -13,6 +13,7 @@ from moveit_commander import MoveGroupCommander, roscpp_initialize
 from moveit_commander.conversions import list_to_pose, pose_to_list
 
 from sensor_msgs.msg import JointState
+# from moveit_msgs.ms+g import RobotState
 from geometry_msgs.msg import Pose, PoseStamped
 from std_msgs.msg import Float64
 from visualization_msgs.msg import Marker
@@ -62,6 +63,7 @@ class Relaxed_UR5_Connection():
         self.moveit_interface =  movegroup if isinstance(movegroup, MoveGroupCommander) else MoveGroupCommander(movegroup)
         # self.moveit_interface.set_end_effector_link('hand_root')
         # print(self.moveit_interface.get_end_effector_link())
+        # self.moveit_interface.set_start_state(RobotState(joint_state=self.jangles))
         self.moveit_interface.go(joints=self.jangles, wait=True) #go to the initial position requested to relaxed_ik
         self.OnSolutionReceived(JointAngles(angles=Float64(init_state)))
         pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose #get the pose relative to world
@@ -134,7 +136,7 @@ class Relaxed_UR5_Connection():
         """
         # print(joint_angle_msg.angles.data)
         
-        print(np.asarray(joint_angle_msg.angles.data).round(3),np.asarray(self.moveit_interface.get_joint_value_target()).round(3))
+        print(np.asarray(joint_angle_msg.angles.data).round(3) - np.asarray(self.moveit_interface.get_current_joint_values()).round(3))
         if self.sim:
             self.jangles.position = joint_angle_msg.angles.data
             self.joint_target_pub.publish(self.jangles)
