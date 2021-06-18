@@ -26,6 +26,10 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from teleoperation_ur5_allegro_leap.teleop.ur5 import WS_Bounds
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
+
+
+from std_msgs.msg import Int32
+
 # jorder = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 # realj = [2.3744237422943115, -2.0752771536456507, -1.7465012709247034, -0.8918698469745081, 1.5678939819335938, 0.013490866869688034]
 
@@ -44,15 +48,17 @@ class Relaxed_UR5_Connection():
     request_topic = ur5_teleop_prefix + 'ur5_pose_targets'
     goal_marker_topic = ur5_teleop_prefix + 'target_marker_debug'
     workspace_marker_topic = ur5_teleop_prefix + 'workspace'
-    time_to_target = 0.01
+    time_to_target = 1 / 15.
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
                 workspace = WS_Bounds(-np.infty * np.ones(3), np.infty * np.ones(3)),
                 movegroup='ur5_arm', sim=True, debug_mode=False):
         self.sim = sim
-        self.jstate_buffer = []
+        self.jstate_buffer = [] if sim else FollowJointTrajectoryGoal(
+            trajectory=JointTrajectory(joint_names=self.jnames))
         self.jangles = JointState(name=self.jnames, position=init_state)
         # self.__set_trajectory_buffer(init_state)
+        self.debug_buffer_size_pub = rospy.Publisher('/buffer_size', Int32, queue_size=1)
         self.add_to_buffer(init_state)
         self.workspace = workspace
         
@@ -160,26 +166,40 @@ class Relaxed_UR5_Connection():
                 np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
         if np.linalg.norm(diff) > 1e-2:
             rospy.loginfo(str(diff))
-        self.add_to_buffer(joint_angle_msg.angles.data)
+            self.add_to_buffer(joint_angle_msg.angles.data)
         
     def add_to_buffer(self, js_postion):
         old_jangles = self.jangles
         self.jangles = JointState(name=self.jnames, position=js_postion)
-        
+        # diff = (
+        #     np.asarray(js_postion) - \
+        #         np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
         if self.sim:
             self.jstate_buffer.append(deepcopy(self.jangles))
         else:
+            # if np.any(diff > 1e-2):
+            n = len(self.jstate_buffer.trajectory.points)
             self.jstate_buffer.trajectory.points.append(
                 JointTrajectoryPoint(
                     positions=js_postion,
-                    velocities=[0]*6, 
-                    time_from_start=rospy.Duration(self.time_to_target)))
+                    velocities=[np.pi/100]*6, 
+                    accelerations=[np.pi/150]*6, 
+                    time_from_start=rospy.Duration((n + 1) * self.time_to_target)))
+                # self.jstate_buffer.trajectory.points = []
+                # self.jstate_buffer.trajectory.points.append(
+                #     JointTrajectoryPoint(
+                #         positions=js_postion,
+                #         velocities=[np.pi/100]*6, 
+                #         accelerations=[np.pi/100]*6, 
+                #         time_from_start=rospy.Duration(self.time_to_target)))
+                # self.debug_buffer_size_pub.publish(Int32(n+1))
+            
             
     def consume_buffer(self):
         # jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)
         if self.sim and len(self.jstate_buffer) > 0:
             
-            buffer, self.jstate_buffer=  deepcopy(self.jstate_buffer), []
+            buffer, self.jstate_buffer = deepcopy(self.jstate_buffer), []
             for jstate in buffer:
                 # for k, jnts in enumerate(jnt_pts[-1:]):
                 # self.jangles.position = joint_angle_msg.angles.data
@@ -190,15 +210,13 @@ class Relaxed_UR5_Connection():
             
         
         elif not self.sim and len(self.jstate_buffer.trajectory.points) > 0:
-            self.joint_target_pub.wait_for_result()
+            # self.joint_target_pub.wait_for_result() #
             targets, self.jstate_buffer.trajectory.points = deepcopy(self.jstate_buffer), []
             self.joint_target_pub.send_goal(targets)
-            # try:
-            #     self.joint_target_pub.wait_for_result()
-            # except KeyboardInterrupt:
-            #     self.joint_target_pub.cancel_goal()
-            #     raise
-            
+            rospy.sleep(self.time_to_target / 2)
+
+
+
         else:
             rospy.sleep(self.time_to_target)
         

@@ -3,6 +3,6 @@ ur5_teleop_config:
     True
   workspace:
     center:
-      [0.252, 0.374, 1.280]
+      [0.0, 0.4, 1.280]
     scale:
-      [0.1, 0.1, 0.1]
+      [0.3, 0.2, 0.2]
