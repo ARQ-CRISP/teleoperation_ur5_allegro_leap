@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 from __future__ import print_function, division, absolute_import
 import numpy as np
+from copy import deepcopy
 import sys
 
 import rospy
@@ -22,10 +23,12 @@ from relaxed_ik.msg import EEPoseGoals, JointAngles
 from control_msgs.msg import FollowJointTrajectoryGoal, FollowJointTrajectoryAction
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
+from teleoperation_ur5_allegro_leap.teleop.ur5 import WS_Bounds
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
-jorder = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-realj = [2.3744237422943115, -2.0752771536456507, -1.7465012709247034, -0.8918698469745081, 1.5678939819335938, 0.013490866869688034]
+# jorder = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+# realj = [2.3744237422943115, -2.0752771536456507, -1.7465012709247034, -0.8918698469745081, 1.5678939819335938, 0.013490866869688034]
+
 class Relaxed_UR5_Connection():
     
     jnames = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 
@@ -39,13 +42,20 @@ class Relaxed_UR5_Connection():
     relaxed_ik_solutions_topic = '/relaxed_ik/joint_angle_solutions'
     
     request_topic = ur5_teleop_prefix + 'ur5_pose_targets'
-    marker_topic = ur5_teleop_prefix + 'target_marker_debug'
+    goal_marker_topic = ur5_teleop_prefix + 'target_marker_debug'
+    workspace_marker_topic = ur5_teleop_prefix + 'workspace'
+    time_to_target = 0.01
     
-    def __init__(self, init_state=[0., 0., 0., 0., 0., 0.], movegroup='ur5_arm', sim=True, debug_mode=False):
+    def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
+                workspace = WS_Bounds(-np.infty * np.ones(3), np.infty * np.ones(3)),
+                movegroup='ur5_arm', sim=True, debug_mode=False):
         self.sim = sim
-        self.jangles = JointState()
-        self.jangles.name = self.jnames
-        self.jangles.position = init_state
+        self.jstate_buffer = []
+        self.jangles = JointState(name=self.jnames, position=init_state)
+        # self.__set_trajectory_buffer(init_state)
+        self.add_to_buffer(init_state)
+        self.workspace = workspace
+        
         self.rotation_bias = Frame(Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0))
         
         self.posegoal = EEPoseGoals()
@@ -62,16 +72,15 @@ class Relaxed_UR5_Connection():
         self.debug_mode = debug_mode
         roscpp_initialize(sys.argv)
         self.moveit_interface =  movegroup if isinstance(movegroup, MoveGroupCommander) else MoveGroupCommander(movegroup)
-        # self.moveit_interface.set_end_effector_link('hand_root')
-        # print(self.moveit_interface.get_end_effector_link())
-        # self.moveit_interface.set_start_state(RobotState(joint_state=self.jangles))
+        
         self.moveit_interface.go(joints=self.jangles, wait=True) #go to the initial position requested to relaxed_ik
         self.OnSolutionReceived(JointAngles(angles=Float64(init_state)))
         pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose #get the pose relative to world
         
-        self.init_pose = pm.fromMsg(pose)
         
+        self.init_pose = pm.fromMsg(pose)
 
+            
     def set_controller_driver_connection(self):
         if not self.sim:
             self.joint_target_pub = actionlib.SimpleActionClient(self.real_robot_action_server, FollowJointTrajectoryAction)
@@ -83,12 +92,21 @@ class Relaxed_UR5_Connection():
 
 
     def set_debug_properties(self):
-        self.marker_target_pub = rospy.Publisher(self.marker_topic, PoseStamped, queue_size=1)
-        self.target_marker = Marker()
-        self.target_marker.type = Marker.ARROW
+        self.marker_target_pub = rospy.Publisher(self.goal_marker_topic, PoseStamped, queue_size=1)
+        self.marker_workspace_pub = rospy.Publisher(self.workspace_marker_topic, Marker, queue_size=1)
+        self.workspace_marker = Marker(type=Marker.CUBE)
+        self.target_marker = Marker(type=Marker.ARROW)
+        # self.target_marker.type = Marker.ARROW
         self.target_marker.scale.x, self.target_marker.scale.y, self.target_marker.scale.z = 0.2, 0.01, 0.01
         self.target_marker.color.b = self.target_marker.color.a = 1.0
-        self.target_marker.header.frame_id = 'world'
+        
+        ws_center, ws_scale = self.workspace.get_center_scale()
+        print(ws_center, ws_scale)
+        self.workspace_marker.header.frame_id = self.target_marker.header.frame_id = 'world'
+        self.workspace_marker.pose.position.x, self.workspace_marker.pose.position.y, self.workspace_marker.pose.position.z = ws_center
+        self.workspace_marker.pose.orientation.w = 1.
+        self.workspace_marker.scale.x, self.workspace_marker.scale.y, self.workspace_marker.scale.z = ws_scale
+        self.workspace_marker.color.g = self.workspace_marker.color.a = .5
     
     def get_absolute_mode_flag(self):
         return rospy.get_param(self.absolute_teleop_mode_rosparam, default=True)
@@ -101,13 +119,13 @@ class Relaxed_UR5_Connection():
         rospy.set_param(self.absolute_teleop_mode_rosparam, value)
     
     def goto_pose(self, goal_pose):
-        """[summary]
+        """sends the target point
 
         Args:
             goal_pose (numpy.array): array containing the position and orientation relative to the initial position
             of the goal.
         """
-        posegoal = EEPoseGoals()
+        # posegoal = EEPoseGoals()
         self.posegoal.header.stamp = rospy.Time.now()
         self.posegoal.ee_poses[0] = pm.toMsg(goal_pose)
         self.goal_pub.publish(self.posegoal)
@@ -118,6 +136,7 @@ class Relaxed_UR5_Connection():
         tgt = PoseStamped(pose=pose)
         tgt.header.frame_id = frame
         self.marker_target_pub.publish(tgt)
+        self.marker_workspace_pub.publish(self.workspace_marker)
         
     def pose_to_world_frame(self, relative_pose):
         world_f = self.init_pose * relative_pose 
@@ -136,30 +155,52 @@ class Relaxed_UR5_Connection():
             joint_angle_msg (relaxed_ik.msg.JointAngles): The JointAngles solution message
         """
         # print(joint_angle_msg.angles.data)
+        diff = (
+            np.asarray(joint_angle_msg.angles.data) - \
+                np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
+        if np.linalg.norm(diff) > 1e-2:
+            rospy.loginfo(str(diff))
+        self.add_to_buffer(joint_angle_msg.angles.data)
         
-        print(np.asarray(joint_angle_msg.angles.data).round(3) - np.asarray(self.moveit_interface.get_current_joint_values()).round(3))
-        jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)
+    def add_to_buffer(self, js_postion):
+        old_jangles = self.jangles
+        self.jangles = JointState(name=self.jnames, position=js_postion)
+        
         if self.sim:
-            # for k, jnts in enumerate(jnt_pts[-1:]):
-            self.jangles.position = joint_angle_msg.angles.data
-            self.jangles.header.stamp = rospy.Time.now()
-            # self.jangles.header.seq = k
-            self.joint_target_pub.publish(self.jangles)
-                # rospy.sleep(0.0000001)
+            self.jstate_buffer.append(deepcopy(self.jangles))
         else:
-            g = FollowJointTrajectoryGoal()
-            g.trajectory = JointTrajectory()
-            g.trajectory.joint_names = self.jnames
-            g.trajectory.points = [
+            self.jstate_buffer.trajectory.points.append(
                 JointTrajectoryPoint(
-                    positions=joint_angle_msg.angles.data,
-                    velocities=[0]*6, time_from_start=rospy.Duration(0.1))]
-            self.joint_target_pub.send_goal(g)
-            try:
-                self.joint_target_pub.wait_for_result()
-            except KeyboardInterrupt:
-                self.joint_target_pub.cancel_goal()
-                raise
+                    positions=js_postion,
+                    velocities=[0]*6, 
+                    time_from_start=rospy.Duration(self.time_to_target)))
+            
+    def consume_buffer(self):
+        # jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)
+        if self.sim and len(self.jstate_buffer) > 0:
+            
+            buffer, self.jstate_buffer=  deepcopy(self.jstate_buffer), []
+            for jstate in buffer:
+                # for k, jnts in enumerate(jnt_pts[-1:]):
+                # self.jangles.position = joint_angle_msg.angles.data
+                jstate.header.stamp = rospy.Time.now()
+                # self.jangles.header.seq = k
+                self.joint_target_pub.publish(self.jangles)
+                rospy.sleep(self.time_to_target)
+            
+        
+        elif not self.sim and len(self.jstate_buffer.trajectory.points) > 0:
+            self.joint_target_pub.wait_for_result()
+            targets, self.jstate_buffer.trajectory.points = deepcopy(self.jstate_buffer), []
+            self.joint_target_pub.send_goal(targets)
+            # try:
+            #     self.joint_target_pub.wait_for_result()
+            # except KeyboardInterrupt:
+            #     self.joint_target_pub.cancel_goal()
+            #     raise
+            
+        else:
+            rospy.sleep(self.time_to_target)
         
     def make_joint_trajectory(self, target, steps=3):
         source = self.moveit_interface.get_current_joint_values()
@@ -174,6 +215,10 @@ class Relaxed_UR5_Connection():
         request = pm.fromMsg(pose_stamped.pose)
         
         if self.get_absolute_mode_flag():
+            bound_p = self.workspace.bind(request.p)
+            # print(request.p, '---->>')
+            request.p = Vector(*bound_p.tolist())
+            # print(request.p, '<<---')
             request = self.pose_to_relative_frame(request)
         
         if self.debug_mode:
