@@ -17,6 +17,13 @@ class WS_Bounds():
         scale = (self.end_pt - self.start_pt) * 0.5
         return center.tolist(), scale.tolist()
     
+    def set_center_scale(self, center, scale):
+        
+        start_pt, end_pt = center - scale, center + scale
+        
+        self.start_pt = np.min([start_pt, end_pt], axis=0)
+        self.end_pt = np.max([start_pt, end_pt], axis=0)
+    
     @classmethod
     def from_center_scale(cls, center, scale):
         center, scale = np.asarray(list(center)), np.asarray(list(scale))
