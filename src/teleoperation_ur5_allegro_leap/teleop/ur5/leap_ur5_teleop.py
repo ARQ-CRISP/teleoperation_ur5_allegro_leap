@@ -10,7 +10,7 @@ from __future__ import print_function, division, absolute_import
 import tf2_ros
 import rospy
 import numpy as np
-from PyKDL import Frame, Rotation
+from PyKDL import Frame, Rotation, Vector
 
 from geometry_msgs.msg import Pose, PoseStamped
 from visualization_msgs.msg import Marker
@@ -32,12 +32,16 @@ class Leap_Teleop_UR5():
     marker_topic = ur5_teleop_prefix + 'target_marker'
     pose_goal_topic = ur5_teleop_prefix + 'ur5_pose_targets'
     toggle_tracking_srv = ur5_teleop_prefix + 'toggle_tracking'
+    workspace_marker_topic = ur5_teleop_prefix + 'workspace'
     
-    def __init__(self, right_hand=True):
+    def __init__(self, workspace, right_hand=True):
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(10))
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         
         self.previous_tf = None
+        self.workspace = workspace
+        self.create_ws_viz_properties()
+        
         self.target = Frame()
         self.right_hand_mode = right_hand
         rospy.sleep(.1) #Let the tf buffer fill up
@@ -57,6 +61,24 @@ class Leap_Teleop_UR5():
         self.__tracking_toggler = rospy.Service(self.toggle_tracking_srv, Toggle_Tracking,
                                                 lambda update: Toggle_TrackingResponse( 
                                                     self.toggle_tracking() if update.update else self.is_tracking))
+    
+    def create_ws_viz_properties(self):
+        self.marker_workspace_pub = rospy.Publisher(self.workspace_marker_topic, Marker, queue_size=1)
+        self.workspace_marker = Marker(type=Marker.CUBE)
+        ws_center, ws_scale = self.workspace.get_center_scale()
+        # print(ws_center, ws_scale)
+        self.workspace_marker.header.frame_id ='world'
+        self.workspace_marker.pose.position.x, self.workspace_marker.pose.position.y, self.workspace_marker.pose.position.z = ws_center
+        self.workspace_marker.pose.orientation.w = 1.
+        self.workspace_marker.scale.x, self.workspace_marker.scale.y, self.workspace_marker.scale.z = ws_scale
+        self.workspace_marker.color.g = self.workspace_marker.color.a = .5
+        
+        self.timer = rospy.Timer(rospy.Duration(1/30.), lambda x: self.show_workspace())
+        # self.timer.start()
+        
+        
+    def show_workspace(self):
+        self.marker_workspace_pub.publish(self.workspace_marker)
         
     def toggle_tracking(self):
         if self.__leap_listener is None:
@@ -98,7 +120,8 @@ class Leap_Teleop_UR5():
                 self.current_pose.M = self.target.M
                 # self.current_pose.p += tgt.p
                 # self.current_pose.M = tgt.M
-                 
+                bound_pos = self.workspace.bind(self.current_pose.p)
+                self.current_pose.p = Vector(*bound_pos)
                 rospy.loginfo(rospy.get_name() + ': ' + str(np.array(list(self.current_pose.p)).round(3)))
                 self.target_marker.pose = toMsg(self.current_pose)
             

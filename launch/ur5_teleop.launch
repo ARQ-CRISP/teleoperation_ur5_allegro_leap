@@ -35,4 +35,9 @@
             <arg name="teleop_mode_absolute" value="true"/>
             <arg name="sim" value="$(arg sim)"/>
     </include>
+    
+    <include file="$(find arq_ur5)/launch/load_scene.launch">
+            <arg name="scene" value="bimanual_computers"/>
+    </include>
+    
 </launch>

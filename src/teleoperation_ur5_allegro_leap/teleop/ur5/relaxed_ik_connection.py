@@ -47,20 +47,20 @@ class Relaxed_UR5_Connection():
     
     request_topic = ur5_teleop_prefix + 'ur5_pose_targets'
     goal_marker_topic = ur5_teleop_prefix + 'target_marker_debug'
-    workspace_marker_topic = ur5_teleop_prefix + 'workspace'
+    # workspace_marker_topic = ur5_teleop_prefix + 'workspace'
     time_to_target = 1 / 15.
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
-                workspace = WS_Bounds(-np.infty * np.ones(3), np.infty * np.ones(3)),
+                # workspace = WS_Bounds(-np.infty * np.ones(3), np.infty * np.ones(3)),
                 movegroup='ur5_arm', sim=True, debug_mode=False):
         self.sim = sim
         self.jstate_buffer = [] if sim else FollowJointTrajectoryGoal(
             trajectory=JointTrajectory(joint_names=self.jnames))
         self.jangles = JointState(name=self.jnames, position=init_state)
         # self.__set_trajectory_buffer(init_state)
-        self.debug_buffer_size_pub = rospy.Publisher('/buffer_size', Int32, queue_size=1)
+        # self.debug_buffer_size_pub = rospy.Publisher('/buffer_size', Int32, queue_size=1)
         self.add_to_buffer(init_state)
-        self.workspace = workspace
+        # self.workspace = workspace
         
         self.rotation_bias = Frame(Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0))
         
@@ -99,20 +99,20 @@ class Relaxed_UR5_Connection():
 
     def set_debug_properties(self):
         self.marker_target_pub = rospy.Publisher(self.goal_marker_topic, PoseStamped, queue_size=1)
-        self.marker_workspace_pub = rospy.Publisher(self.workspace_marker_topic, Marker, queue_size=1)
-        self.workspace_marker = Marker(type=Marker.CUBE)
         self.target_marker = Marker(type=Marker.ARROW)
         # self.target_marker.type = Marker.ARROW
         self.target_marker.scale.x, self.target_marker.scale.y, self.target_marker.scale.z = 0.2, 0.01, 0.01
         self.target_marker.color.b = self.target_marker.color.a = 1.0
-        
-        ws_center, ws_scale = self.workspace.get_center_scale()
-        print(ws_center, ws_scale)
-        self.workspace_marker.header.frame_id = self.target_marker.header.frame_id = 'world'
-        self.workspace_marker.pose.position.x, self.workspace_marker.pose.position.y, self.workspace_marker.pose.position.z = ws_center
-        self.workspace_marker.pose.orientation.w = 1.
-        self.workspace_marker.scale.x, self.workspace_marker.scale.y, self.workspace_marker.scale.z = ws_scale
-        self.workspace_marker.color.g = self.workspace_marker.color.a = .5
+        #######################################################################
+        # self.marker_workspace_pub = rospy.Publisher(self.workspace_marker_topic, Marker, queue_size=1)
+        # self.workspace_marker = Marker(type=Marker.CUBE)
+        # ws_center, ws_scale = self.workspace.get_center_scale()
+        # print(ws_center, ws_scale)
+        # self.workspace_marker.header.frame_id = self.target_marker.header.frame_id = 'world'
+        # self.workspace_marker.pose.position.x, self.workspace_marker.pose.position.y, self.workspace_marker.pose.position.z = ws_center
+        # self.workspace_marker.pose.orientation.w = 1.
+        # self.workspace_marker.scale.x, self.workspace_marker.scale.y, self.workspace_marker.scale.z = ws_scale
+        # self.workspace_marker.color.g = self.workspace_marker.color.a = .5
     
     def get_absolute_mode_flag(self):
         return rospy.get_param(self.absolute_teleop_mode_rosparam, default=True)
@@ -142,7 +142,6 @@ class Relaxed_UR5_Connection():
         tgt = PoseStamped(pose=pose)
         tgt.header.frame_id = frame
         self.marker_target_pub.publish(tgt)
-        self.marker_workspace_pub.publish(self.workspace_marker)
         
     def pose_to_world_frame(self, relative_pose):
         world_f = self.init_pose * relative_pose 
@@ -197,6 +196,7 @@ class Relaxed_UR5_Connection():
             
     def consume_buffer(self):
         # jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)
+        # self.marker_workspace_pub.publish(self.workspace_marker)
         if self.sim and len(self.jstate_buffer) > 0:
             
             buffer, self.jstate_buffer = deepcopy(self.jstate_buffer), []
@@ -233,9 +233,9 @@ class Relaxed_UR5_Connection():
         request = pm.fromMsg(pose_stamped.pose)
         
         if self.get_absolute_mode_flag():
-            bound_p = self.workspace.bind(request.p)
+            # bound_p = self.workspace.bind(request.p)
             # print(request.p, '---->>')
-            request.p = Vector(*bound_p.tolist())
+            # request.p = Vector(*bound_p.tolist())
             # print(request.p, '<<---')
             request = self.pose_to_relative_frame(request)
         
