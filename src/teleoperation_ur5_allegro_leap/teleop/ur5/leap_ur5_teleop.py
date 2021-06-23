@@ -19,6 +19,8 @@ from tf_conversions import fromTf, toMsg
 
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
+from teleoperation_ur5_allegro_leap.srv import Toggle_Tracking, Toggle_TrackingResponse
+
 def transform_to_vec(T):
     t = T.transform.translation
     r = T.transform.rotation
@@ -29,6 +31,7 @@ class Leap_Teleop_UR5():
     leap_motion_topic = '/leap_motion/leap_device'
     marker_topic = ur5_teleop_prefix + 'target_marker'
     pose_goal_topic = ur5_teleop_prefix + 'ur5_pose_targets'
+    toggle_tracking_srv = ur5_teleop_prefix + 'toggle_tracking'
     
     def __init__(self, right_hand=True):
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(10))
@@ -47,9 +50,29 @@ class Leap_Teleop_UR5():
         self.target_marker.scale.x, self.target_marker.scale.y, self.target_marker.scale.z = 0.02, 0.01, 0.01
         self.target_marker.color.r = self.target_marker.color.a = 1.0
         self.target_marker.header.frame_id = 'world'
-        self.leap_subscriber = rospy.Subscriber(self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
+        self.__leap_listener = rospy.Subscriber(self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
         self.marker_pub = rospy.Publisher(self.marker_topic, Marker, queue_size=1)
         self.posegoal_pub = rospy.Publisher(self.pose_goal_topic, PoseStamped, queue_size=1)
+        
+        self.__tracking_toggler = rospy.Service(self.toggle_tracking_srv, Toggle_Tracking,
+                                                lambda update: Toggle_TrackingResponse( 
+                                                    self.toggle_tracking() if update.update else self.is_tracking))
+        
+    def toggle_tracking(self):
+        if self.__leap_listener is None:
+            rospy.loginfo('UR5 Teleop: Resuming Tracking!')
+            self.__leap_listener = rospy.Subscriber(
+                self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
+        else:
+            rospy.loginfo('UR5 Teleop: Tracking Interrupted!')
+            self.__leap_listener.unregister()
+            self.__leap_listener = None
+        return self.is_tracking    
+            
+    @property         
+    def is_tracking(self):
+        return self.__leap_listener is None              
+             
              
     def OnLeapMessage(self, human_msg):
         
