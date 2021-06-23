@@ -9,17 +9,6 @@ from teleoperation_ur5_allegro_leap.teleop.ur5.relaxed_ik_connection import Rela
 from teleoperation_ur5_allegro_leap.teleop.ur5 import WS_Bounds
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
-
-# def update_workspace(connection):
-#     global workspace_bounds
-#     workspace_bounds = rospy.get_param('ur5_teleop_config/workspace/', default=workspace_bounds)
-#     connection.workspace_marker.pose.position.x = workspace_bounds['center'][0]
-#     connection.workspace_marker.pose.position.y = workspace_bounds['center'][1]
-#     connection.workspace_marker.pose.position.z = workspace_bounds['center'][2]
-    
-#     connection.workspace_marker.scale.x = workspace_bounds['scale'][0]
-#     connection.workspace_marker.scale.y = workspace_bounds['scale'][1]
-#     connection.workspace_marker.scale.z = workspace_bounds['scale'][2]  
     
 
 if __name__ == '__main__':
@@ -31,16 +20,6 @@ if __name__ == '__main__':
     
     rospy.loginfo('[' + rospy.get_name() + ']' + ' ik config_file: {}'.format(relaxed_yaml_filename))
     
-    # if workspace_bounds is None:
-    #     rospy.loginfo('[' + rospy.get_name() + ']' + ' No Workspace Bounds set')
-    #     workspace_bounds = {'center': [0.0, 0.4, 1.280], 'scale': [0.2] * 3}
-        
-    #     # workspace = WS_Bounds.from_center_scale([0.242, 0.364, 1.270], [0.2] * 3)
-    #     rospy.set_param('ur5_teleop_config/workspace/', workspace_bounds)
-    # else:
-    #     rospy.loginfo('[' + rospy.get_name() + ']' + ' workspace_config: {}'.format(workspace_bounds))
-    
-    # workspace = WS_Bounds.from_center_scale(workspace_bounds['center'], workspace_bounds['scale'])
         
     if is_sim:
         rospy.loginfo('[' + rospy.get_name() + ']' + ' Teleoperating in a simulated environment!')
@@ -54,12 +33,10 @@ if __name__ == '__main__':
     connection = Relaxed_UR5_Connection(
         init_state=yaml_file['starting_config'],
         movegroup='ur5_arm',
-        # workspace=workspace,
         sim=is_sim, debug_mode=True)
     
     connection.listen()
     
     while not rospy.is_shutdown():
-        # update_workspace(connection)
         connection.consume_buffer()
     # rospy.spin()
