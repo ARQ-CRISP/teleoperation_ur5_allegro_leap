@@ -148,13 +148,24 @@ class Relaxed_UR5_Connection():
         Args:
             joint_angle_msg (relaxed_ik.msg.JointAngles): The JointAngles solution message
         """
+        max_angle = np.pi/8.
         # print(joint_angle_msg.angles.data)
         diff = (
             np.asarray(joint_angle_msg.angles.data) - \
                 np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
-        if np.linalg.norm(diff) > 1e-2:
+        if 1e-2 < np.linalg.norm(diff) < max_angle :
             rospy.loginfo(str(diff))
             self.add_to_buffer(joint_angle_msg.angles.data)
+        elif np.any(np.absolute(diff) >= max_angle):
+            rospy.logwarn('Arm seems to move too fast! Difference of sequencial joint angles too damn high!')
+            # res = np.concatenate([
+                # np.absolute(diff).reshape(1, -1),
+                # np.ones(diff.shape).reshape(1, -1) * max_angle], axis=0).min(axis=0).squeeze()
+            # diff[diff>max_angle] = max_angle
+            # diff[diff<-max_angle] = -max_angle    
+            # res *= np.sign(diff)
+            rospy.loginfo(str(diff))
+            # self.add_to_buffer((np.asarray(joint_angle_msg.angles.data) + diff).tolist())
         
     def add_to_buffer(self, js_postion):
         old_jangles = self.jangles
