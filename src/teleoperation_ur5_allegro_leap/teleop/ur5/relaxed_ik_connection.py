@@ -48,7 +48,8 @@ class Relaxed_UR5_Connection():
     request_topic = ur5_teleop_prefix + 'ur5_pose_targets'
     goal_marker_topic = ur5_teleop_prefix + 'target_marker_debug'
     
-    time_to_target = 1 / 15.
+    time_to_target = 1 / 30.
+    update_time = 1 / 15.
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
                 movegroup='ur5_arm', sim=True, debug_mode=False):
@@ -212,7 +213,7 @@ class Relaxed_UR5_Connection():
             # self.joint_target_pub.wait_for_result() #
             targets, self.jstate_buffer.trajectory.points = deepcopy(self.jstate_buffer), []
             self.joint_target_pub.send_goal(targets)
-            rospy.sleep(self.time_to_target / 2)
+            rospy.sleep(self.update_time)
 
 
 
