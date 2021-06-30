@@ -49,7 +49,7 @@ class Relaxed_UR5_Connection():
     goal_marker_topic = ur5_teleop_prefix + 'target_marker_debug'
     
     time_to_target = 1 / 30.
-    update_time = 1 / 15.
+    update_time = 1 / 10.
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
                 movegroup='ur5_arm', sim=True, debug_mode=False):
@@ -169,8 +169,9 @@ class Relaxed_UR5_Connection():
             # self.add_to_buffer((np.asarray(joint_angle_msg.angles.data) + diff).tolist())
         
     def add_to_buffer(self, js_postion):
-        old_jangles = self.jangles
+        old_jangles = self.jangles.position
         self.jangles = JointState(name=self.jnames, position=js_postion)
+        velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / self.time_to_target).tolist()
         # diff = (
         #     np.asarray(js_postion) - \
         #         np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
@@ -182,8 +183,8 @@ class Relaxed_UR5_Connection():
             self.jstate_buffer.trajectory.points.append(
                 JointTrajectoryPoint(
                     positions=js_postion,
-                    velocities=[np.pi/100]*6, 
-                    accelerations=[np.pi/150]*6, 
+                    velocities=velocity,#[np.pi/1000]*6, 
+                    accelerations=[np.pi/100.]*6, 
                     time_from_start=rospy.Duration((n + 1) * self.time_to_target)))
                 # self.jstate_buffer.trajectory.points = []
                 # self.jstate_buffer.trajectory.points.append(
@@ -199,7 +200,7 @@ class Relaxed_UR5_Connection():
         # jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)
         if self.sim and len(self.jstate_buffer) > 0:
             
-            buffer, self.jstate_buffer = deepcopy(self.jstate_buffer), [self.jstate_buffer[-1]]
+            buffer, self.jstate_buffer = deepcopy(self.jstate_buffer), []
             for jstate in buffer:
                 # for k, jnts in enumerate(jnt_pts[-1:]):
                 # self.jangles.position = joint_angle_msg.angles.data

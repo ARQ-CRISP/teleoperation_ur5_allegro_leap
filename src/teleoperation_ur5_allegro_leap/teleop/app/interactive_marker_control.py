@@ -52,6 +52,7 @@ class InteractiveControl():
         self.server.applyChanges()
         
         self.posegoal_pub = rospy.Publisher(self.pose_goal_topic, PoseStamped, queue_size=1)
+        rospy.Timer(rospy.Duration(1/30.), lambda x: self.publish_pose())
     
     def makeMarker(self, msg, marker_type=Marker.CUBE, scale = 0.145):
         marker = Marker()
@@ -73,14 +74,18 @@ class InteractiveControl():
         control.markers.append(self.makeMarker(msg, Marker.ARROW))
         msg.controls.append(control)
         return control
+
+    def publish_pose(self):
+        # print('Publishing')
+        target = PoseStamped()
+        target.pose = pm.toMsg(self.frame)
+        target.header.frame_id = 'world'
+        self.posegoal_pub.publish(target)
+
     
     def processFeedback(self, feedback):
-        target = PoseStamped()
-        target.pose = feedback.pose
-        target.header.frame_id = 'world'
         frame = pm.fromMsg(feedback.pose)
         self.frame = frame
-        self.posegoal_pub.publish(target)
         print(feedback.marker_name + " is now at ", np.asarray(list(frame.p)).round(3), np.asarray(list(frame.M.GetQuaternion())).round(3))
         
 if __name__ == '__main__':
