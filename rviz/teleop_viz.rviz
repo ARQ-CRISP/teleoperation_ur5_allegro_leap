@@ -339,8 +339,17 @@ Visualization Manager:
       Marker Topic: /ur5_allegro_teleop/ur5/workspace
       Name: Marker
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
+      Value: true
+    - Class: rviz/InteractiveMarkers
+      Enable Transparency: true
+      Enabled: true
+      Name: InteractiveMarkers
+      Show Axes: false
+      Show Descriptions: true
+      Show Visual Aids: false
+      Update Topic: /teleoperation_bias_marker/update
       Value: true
   Enabled: true
   Global Options:

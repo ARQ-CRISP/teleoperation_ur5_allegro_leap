@@ -31,7 +31,7 @@ class InteractiveControl():
         self.int_mark.scale = .5
 
         self.int_mark.name = "ur5_target_bias"
-        self.int_mark.description = "Quadrocopter"
+        self.int_mark.description = "UR_EE_Marker"
         
         self.makeMarkerControl(self.int_mark)
 
@@ -89,6 +89,6 @@ class InteractiveControl():
         print(feedback.marker_name + " is now at ", np.asarray(list(frame.p)).round(3), np.asarray(list(frame.M.GetQuaternion())).round(3))
         
 if __name__ == '__main__':
-    rospy.init_node('interactive_marker')
+    rospy.init_node('UR5_ee_control_marker')
     controller = InteractiveControl([0.200, 0.358, 1.147], [0.708, 0.000, -0.707, 0.000])
     rospy.spin()
