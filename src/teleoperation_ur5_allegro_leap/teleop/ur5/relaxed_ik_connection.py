@@ -85,6 +85,7 @@ class Relaxed_UR5_Connection():
         
         
         self.init_pose = pm.fromMsg(pose)
+        self.last_j_state = self.jangles.position
 
             
     def set_controller_driver_connection(self):
@@ -153,10 +154,11 @@ class Relaxed_UR5_Connection():
         # print(joint_angle_msg.angles.data)
         diff = (
             np.asarray(joint_angle_msg.angles.data) - \
-                np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
+                np.asarray(self.last_j_state)).round(3)
         if 1e-2 < np.linalg.norm(diff) < max_angle :
             rospy.loginfo(str(diff))
             self.add_to_buffer(joint_angle_msg.angles.data)
+            self.last_j_state = joint_angle_msg.angles.data
         elif np.any(np.absolute(diff) >= max_angle):
             rospy.logwarn('Arm seems to move too fast! Difference of sequencial joint angles too damn high!')
             # res = np.concatenate([
