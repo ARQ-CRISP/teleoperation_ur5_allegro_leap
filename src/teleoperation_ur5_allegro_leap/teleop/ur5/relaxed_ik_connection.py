@@ -49,7 +49,7 @@ class Relaxed_UR5_Connection():
     goal_marker_topic = ur5_teleop_prefix + 'target_marker_debug'
     
     time_to_target = 1 / 30.
-    update_time = 1 / 10.
+    update_time = 1 / 60.
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
                 movegroup='ur5_arm', sim=True, debug_mode=False):
@@ -57,6 +57,7 @@ class Relaxed_UR5_Connection():
         self.jstate_buffer = [] if sim else FollowJointTrajectoryGoal(
             trajectory=JointTrajectory(joint_names=self.jnames))
         self.jangles = JointState(name=self.jnames, position=init_state)
+        self.last_j_state = self.jangles.position
         # self.__set_trajectory_buffer(init_state)
         # self.debug_buffer_size_pub = rospy.Publisher('/buffer_size', Int32, queue_size=1)
         self.add_to_buffer(init_state)
@@ -85,7 +86,6 @@ class Relaxed_UR5_Connection():
         
         
         self.init_pose = pm.fromMsg(pose)
-        self.last_j_state = self.jangles.position
 
             
     def set_controller_driver_connection(self):
@@ -155,10 +155,10 @@ class Relaxed_UR5_Connection():
         diff = (
             np.asarray(joint_angle_msg.angles.data) - \
                 np.asarray(self.last_j_state)).round(3)
-        if 1e-2 < np.linalg.norm(diff) < max_angle :
+        if 1e-16 < np.linalg.norm(diff) < max_angle :
             rospy.loginfo(str(diff))
             self.add_to_buffer(joint_angle_msg.angles.data)
-            self.last_j_state = joint_angle_msg.angles.data
+
         elif np.any(np.absolute(diff) >= max_angle):
             rospy.logwarn('Arm seems to move too fast! Difference of sequencial joint angles too damn high!')
             # res = np.concatenate([
@@ -171,31 +171,33 @@ class Relaxed_UR5_Connection():
             # self.add_to_buffer((np.asarray(joint_angle_msg.angles.data) + diff).tolist())
         
     def add_to_buffer(self, js_postion):
-        old_jangles = self.jangles.position
+        old_jangles = self.last_j_state
         self.jangles = JointState(name=self.jnames, position=js_postion)
         velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / self.time_to_target).tolist()
+        max_dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles))).max()
         # diff = (
         #     np.asarray(js_postion) - \
         #         np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
+        T = rospy.Duration(max_dist/(np.pi/2500.))
         if self.sim:
             self.jstate_buffer.append(deepcopy(self.jangles))
         else:
             # if np.any(diff > 1e-2):
             n = len(self.jstate_buffer.trajectory.points)
-            self.jstate_buffer.trajectory.points.append(
+            # self.jstate_buffer.trajectory.points.append(
+            #     JointTrajectoryPoint(
+            #         positions=js_postion,
+            #         velocities=[np.pi/1000.]*6, 
+            #         accelerations=[np.pi/100.]*6, 
+            #         time_from_start=rospy.Duration((n + 1) * self.time_to_target)))
+            
+            self.jstate_buffer.trajectory.points=[
                 JointTrajectoryPoint(
                     positions=js_postion,
-                    velocities=velocity,#[np.pi/1000]*6, 
-                    accelerations=[np.pi/100.]*6, 
-                    time_from_start=rospy.Duration((n + 1) * self.time_to_target)))
-                # self.jstate_buffer.trajectory.points = []
-                # self.jstate_buffer.trajectory.points.append(
-                #     JointTrajectoryPoint(
-                #         positions=js_postion,
-                #         velocities=[np.pi/100]*6, 
-                #         accelerations=[np.pi/100]*6, 
-                #         time_from_start=rospy.Duration(self.time_to_target)))
-                # self.debug_buffer_size_pub.publish(Int32(n+1))
+                    velocities=velocity,#[np.pi/100.]*6, 
+                    # accelerations=[np.pi/100.]*6, 
+                    time_from_start=T)]
+        self.last_j_state = js_postion
             
             
     def consume_buffer(self):
