@@ -178,7 +178,9 @@ class Relaxed_UR5_Connection():
         # diff = (
         #     np.asarray(js_postion) - \
         #         np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
-        T = rospy.Duration(max_dist/(np.pi/2500.))
+        T = rospy.Duration(max_dist/(np.pi/1500.))
+        # T = rospy.Duration(5.)
+        print(T.to_sec(), (np.pi/1500.))
         if self.sim:
             self.jstate_buffer.append(deepcopy(self.jangles))
         else:
@@ -217,8 +219,13 @@ class Relaxed_UR5_Connection():
         elif not self.sim and len(self.jstate_buffer.trajectory.points) > 0:
             # self.joint_target_pub.wait_for_result() #
             targets, self.jstate_buffer.trajectory.points = deepcopy(self.jstate_buffer), []
+            self.joint_target_pub.cancel_goal()
             self.joint_target_pub.send_goal(targets)
-            rospy.sleep(self.update_time)
+            # try:
+            #     self.joint_target_pub.wait_for_result()
+            # except KeyboardInterrupt:
+            #     self.joint_target_pub.cancel_goal()
+                # raise
 
 
 

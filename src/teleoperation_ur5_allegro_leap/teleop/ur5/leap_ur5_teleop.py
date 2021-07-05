@@ -10,6 +10,7 @@ from __future__ import print_function, division, absolute_import
 import tf2_ros
 import rospy
 import numpy as np
+from collections import deque
 from PyKDL import Frame, Rotation, Vector
 
 from geometry_msgs.msg import Pose, PoseStamped
@@ -57,6 +58,9 @@ class Leap_Teleop_UR5():
         self.__leap_listener = rospy.Subscriber(self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
         self.marker_pub = rospy.Publisher(self.marker_topic, Marker, queue_size=1)
         self.posegoal_pub = rospy.Publisher(self.pose_goal_topic, PoseStamped, queue_size=1)
+
+        self.position_buffer = deque(maxlen=10)
+        self.orientation_buffer = deque(maxlen=10)
         
         self.__tracking_toggler = rospy.Service(self.toggle_tracking_srv, Toggle_Tracking,
                                                 lambda update: Toggle_TrackingResponse( 
@@ -70,7 +74,7 @@ class Leap_Teleop_UR5():
         self.workspace_marker.header.frame_id ='world'
         self.workspace_marker.pose.position.x, self.workspace_marker.pose.position.y, self.workspace_marker.pose.position.z = ws_center
         self.workspace_marker.pose.orientation.w = 1.
-        self.workspace_marker.scale.x, self.workspace_marker.scale.y, self.workspace_marker.scale.z = ws_scale
+        self.workspace_marker.scale.x, self.workspace_marker.scale.y, self.workspace_marker.scale.z = (np.asarray(ws_scale)*2).tolist()
         self.workspace_marker.color.g = self.workspace_marker.color.a = .5
         
         self.timer = rospy.Timer(rospy.Duration(1/30.), lambda x: self.show_workspace())
@@ -94,7 +98,18 @@ class Leap_Teleop_UR5():
     @property         
     def is_tracking(self):
         return self.__leap_listener is None              
-             
+
+    def filter_pose(self, pos, quat):
+        self.position_buffer.append(np.asarray(pos))
+        self.orientation_buffer.append(np.asarray(quat))
+
+        new_pos = np.asarray(self.position_buffer).mean(axis=0)
+        quats = np.asarray(self.orientation_buffer)
+        # print(quats.dot(quats.T).shape)
+        val, vec = np.linalg.eig(quats.T.dot(quats))
+        new_quat = quats.mean(axis=0)#vec[np.argmin(val)]
+        return new_pos, new_quat
+
              
     def OnLeapMessage(self, human_msg):
         
@@ -113,10 +128,14 @@ class Leap_Teleop_UR5():
                 
                 self.target.p = wrist_f.p - self.previous_tf.p
                 self.target.M = wrist_f.M
+                filtered_pos, filtered_quat = self.filter_pose(list(self.target.p), list(self.target.M.GetRotAngle()))
+                
+                # print((np.asarray(list(self.target.p))-filtered_pos).round(3)) 
+                # print(np.asarray((self.target.M * Rotation.Quaternion(*filtered_quat).Inverse()).GetQuaternion()).round(3))
 
-                # bb = Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0)
-                # tgt = Frame(Rotation.Quaternion(0.5, 0.5, 0.5, -0.5)) * Frame(bb) * self.target * Frame(bb).Inverse()
-                self.current_pose.p += self.target.p
+                self.current_pose.p += Vector(*filtered_pos.round(3))
+                # self.current_pose.p += self.target.p
+                # self.current_pose.M = Rotation.Quaternion(*filtered_quat)#
                 self.current_pose.M = self.target.M
                 # self.current_pose.p += tgt.p
                 # self.current_pose.M = tgt.M
