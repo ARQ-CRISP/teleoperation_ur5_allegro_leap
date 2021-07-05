@@ -19,7 +19,7 @@ class WS_Bounds():
     
     def set_center_scale(self, center, scale):
         
-        start_pt, end_pt = center - scale, center + scale
+        start_pt, end_pt = center - scale*.5, center + scale*.5
         
         self.start_pt = np.min([start_pt, end_pt], axis=0)
         self.end_pt = np.max([start_pt, end_pt], axis=0)
@@ -27,7 +27,7 @@ class WS_Bounds():
     @classmethod
     def from_center_scale(cls, center, scale):
         center, scale = np.asarray(list(center)), np.asarray(list(scale))
-        return cls(center - scale, center + scale)
+        return cls(center - scale*.5, center + scale*.5)
     
     @classmethod
     def from_yaml(cls, yaml_path):
@@ -42,11 +42,13 @@ class WS_Bounds():
     
     def set_center(self, new_center):
         center, scale = self.get_center_scale()
-        return WS_Bounds.from_center_scale(new_center, scale)
+        # return WS_Bounds.from_center_scale(new_center, scale)
+        self.set_center_scale(new_center, scale)
         
     def set_scale(self, new_scale):
         center, scale = self.get_center_scale()
-        return WS_Bounds.from_center_scale(center, new_scale)
+        # return WS_Bounds.from_center_scale(center, new_scale)
+        self.set_center_scale(center, new_scale)
             
     def in_bounds(self, x):
         pt = np.array([list(x)]) if isinstance(x, kdl.Vector) else x
