@@ -107,7 +107,8 @@ class Leap_Teleop_UR5():
         quats = np.asarray(self.orientation_buffer)
         # print(quats.dot(quats.T).shape)
         val, vec = np.linalg.eig(quats.T.dot(quats))
-        new_quat = quats.mean(axis=0)#vec[np.argmin(val)]
+        # new_quat = quats.mean(axis=0)#vec[np.argmin(val)]
+        new_quat = vec[np.argmax(val)]
         return new_pos, new_quat
 
              
@@ -126,28 +127,32 @@ class Leap_Teleop_UR5():
             
             if self.previous_tf is not None:
                 
-                self.target.p = wrist_f.p - self.previous_tf.p
-                self.target.M = wrist_f.M
-                filtered_pos, filtered_quat = self.filter_pose(list(self.target.p), list(self.target.M.GetRotAngle()))
-                
-                # print((np.asarray(list(self.target.p))-filtered_pos).round(3)) 
-                # print(np.asarray((self.target.M * Rotation.Quaternion(*filtered_quat).Inverse()).GetQuaternion()).round(3))
+                rot_dist = 1 - np.asarray(list(self.target.M.GetQuaternion())).dot(list(self.target.M.GetQuaternion()))
+                pos_dist = np.linalg.norm(np.asarray(list(self.previous_tf.p)) - np.asarray(list(wrist_f.p)))
+                                          
+                if (rot_dist > 1e-3) or (pos_dist > 1e-3):
+                    self.target.p = wrist_f.p - self.previous_tf.p
+                    self.target.M = wrist_f.M
+                    
+                    # filtered_pos, filtered_quat = self.filter_pose(list(self.target.p), list(self.target.M.GetQuaternion()))
+                    
+                    # print((np.asarray(list(self.target.p))-filtered_pos).round(3)) 
+                    # print(np.asarray((self.target.M * Rotation.Quaternion(*filtered_quat).Inverse()).GetQuaternion()).round(3))
 
-                self.current_pose.p += Vector(*filtered_pos.round(3))
-                # self.current_pose.p += self.target.p
-                # self.current_pose.M = Rotation.Quaternion(*filtered_quat)#
-                self.current_pose.M = self.target.M
-                # self.current_pose.p += tgt.p
-                # self.current_pose.M = tgt.M
-                bound_pos = self.workspace.bind(self.current_pose.p)
-                self.current_pose.p = Vector(*bound_pos)
-                rospy.loginfo(rospy.get_name() + ': ' + str(np.array(list(self.current_pose.p)).round(3)))
-                self.target_marker.pose = toMsg(self.current_pose)
-            
-                self.marker_pub.publish(self.target_marker )
-                stamped_target = PoseStamped()
-                stamped_target.header.frame_id = 'world'
-                stamped_target.pose = toMsg(self.current_pose)
-                self.posegoal_pub.publish(stamped_target)
+                    # self.current_pose.p += Vector(*filtered_pos.round(3))
+                    self.current_pose.p += self.target.p
+                    # self.current_pose.M = Rotation.Quaternion(*filtered_quat)#
+                    self.current_pose.M = self.target.M
+                    
+                    bound_pos = self.workspace.bind(self.current_pose.p)
+                    self.current_pose.p = Vector(*bound_pos)
+                    rospy.loginfo(rospy.get_name() + ': ' + str(np.array(list(self.current_pose.p)).round(3)))
+                    self.target_marker.pose = toMsg(self.current_pose)
+                
+                    self.marker_pub.publish(self.target_marker )
+                    stamped_target = PoseStamped()
+                    stamped_target.header.frame_id = 'world'
+                    stamped_target.pose = toMsg(self.current_pose)
+                    self.posegoal_pub.publish(stamped_target)
             
             self.previous_tf = wrist_f
