@@ -11,14 +11,14 @@
     <node pkg="relaxed_ik" type="relaxed_ik_node.py" name="relaxed_ik_node" output="log"/>
     <rosparam command="load" file="$(find teleoperation_ur5_allegro_leap)/src/teleoperation_ur5_allegro_leap/teleop/ur5/config/ur5_ee_bounds.yaml" />
 
-    <node pkg="teleoperation_ur5_allegro_leap" type="relaxed_ik_request_interface.py" name="ur5_2_relaxedIK" output="log">
+    <node pkg="teleoperation_ur5_allegro_leap" type="relaxed_ik_request_interface.py" name="ur5_2_relaxedIK" output="screen">
         <param name="/ur5_allegro_teleop/ur5/teleop_mode_absolute" type="bool" value="$(arg teleop_mode_absolute)" />
         <param name="workspace_yaml" type="string" value="$(find teleoperation_ur5_allegro_leap)/src/teleoperation_ur5_allegro_leap/teleop/ur5/config/ur5_ee_bounds.yaml" />
         <param name="simulated" type="bool" value="$(arg sim)" />
     </node>
 
 
-    <node pkg="teleoperation_ur5_allegro_leap" type="leap_ur5_controller.py" name="leap2ur5_target_gen" output="screen">
+    <node pkg="teleoperation_ur5_allegro_leap" type="leap_ur5_controller.py" name="leap2ur5_target_gen" output="log">
     </node>
         
 </launch>
