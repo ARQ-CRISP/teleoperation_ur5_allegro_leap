@@ -36,7 +36,7 @@ if __name__ == '__main__':
         sim=is_sim, debug_mode=True)
     
     connection.listen()
-    
+    rospy.on_shutdown(connection.on_kill)
     while not rospy.is_shutdown():
         connection.consume_buffer()
     # rospy.spin()
