@@ -169,38 +169,67 @@ class Relaxed_UR5_Connection():
             # res *= np.sign(diff)
             rospy.loginfo(str(diff))
             # self.add_to_buffer((np.asarray(joint_angle_msg.angles.data) + diff).tolist())
-        
+    def interpolate_trajectory(self, next_pos, N=3):
+        def sigmoid(x): return 1 / (1 + np.exp(-x))
+        old_jangles = np.asarray(self.last_j_state)
+        js_postion = np.asarray(next_pos)
+        self.jangles = JointState(name=self.jnames, position=next_pos)
+        dist = np.absolute((js_postion - old_jangles))
+        T = dist.max()/(np.pi/2500.)
+        end_velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T)
+
+        t_steps = np.linspace(0, T, N)
+        # steps = np.linspace(0, 1, N).reshape(-1,1)
+        # steps = 1 - np.exp(np.linspace(-1, 0, N)).reshape(-1,1)
+        steps = sigmoid(10*(np.linspace(0, 1, N)-0.5)).reshape(-1,1)
+        pos_steps = old_jangles * (1-steps) + (steps) * js_postion
+        vel_steps = np.sin(np.pi*steps) * end_velocity
+
+        viapoints = [JointTrajectoryPoint(
+                        positions=pos.tolist(),
+                        velocities=vel.tolist(), 
+                        time_from_start=rospy.Duration(t)) for t, pos, vel in zip(t_steps, pos_steps, vel_steps)]
+        # viapoints[-1].velocities = [0.0]*6
+        return viapoints
+            
+
     def add_to_buffer(self, js_postion):
         old_jangles = self.last_j_state
-        self.jangles = JointState(name=self.jnames, position=js_postion)
-        velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / self.time_to_target).tolist()
-        max_dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles))).max()
+        dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles)))
         # diff = (
         #     np.asarray(js_postion) - \
         #         np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
-        T = rospy.Duration(max_dist/(np.pi/1500.))
+        
         # T = rospy.Duration(5.)
-        print(T.to_sec(), (np.pi/1500.))
         if self.sim:
+            self.jangles = JointState(name=self.jnames, position=js_postion)
             self.jstate_buffer.append(deepcopy(self.jangles))
         else:
-            # if np.any(diff > 1e-2):
-            n = len(self.jstate_buffer.trajectory.points)
-            # self.jstate_buffer.trajectory.points.append(
-            #     JointTrajectoryPoint(
-            #         positions=js_postion,
-            #         velocities=[np.pi/1000.]*6, 
-            #         accelerations=[np.pi/100.]*6, 
-            #         time_from_start=rospy.Duration((n + 1) * self.time_to_target)))
-            
-            self.jstate_buffer.trajectory.points=[
-                JointTrajectoryPoint(
-                    positions=js_postion,
-                    velocities=velocity,#[np.pi/100.]*6, 
-                    # accelerations=[np.pi/100.]*6, 
-                    time_from_start=T)]
+            if np.any(dist > 1e-3):
+                T = rospy.Duration(dist.max()/(np.pi/2500.))
+                velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T.to_sec()).tolist()
+                n = len(self.jstate_buffer.trajectory.points)
+
+                print(T.to_sec(), (np.pi/1500.))
+                # self.jstate_buffer.trajectory.points.append(
+                #     JointTrajectoryPoint(
+                #         positions=js_postion,
+                #         velocities=[np.pi/1000.]*6, 
+                #         accelerations=[np.pi/100.]*6, 
+                #         time_from_start=rospy.Duration((n + 1) * self.time_to_target)))
+                viapoints = self.interpolate_trajectory(js_postion)
+                # print(viapoints)
+                self.jstate_buffer.trajectory.points = viapoints
+                # self.jstate_buffer.trajectory.points=[
+                #     JointTrajectoryPoint(
+                #         positions=js_postion,
+                #         velocities=velocity, 
+                #         time_from_start=T)]
         self.last_j_state = js_postion
-            
+
+    def on_kill(self):
+        if self.joint_target_pub is not None:
+            self.joint_target_pub.cancel_goal()
             
     def consume_buffer(self):
         # jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)
@@ -219,16 +248,13 @@ class Relaxed_UR5_Connection():
         elif not self.sim and len(self.jstate_buffer.trajectory.points) > 0:
             # self.joint_target_pub.wait_for_result() #
             targets, self.jstate_buffer.trajectory.points = deepcopy(self.jstate_buffer), []
-            self.joint_target_pub.cancel_goal()
+            # self.joint_target_pub.cancel_goal()
             self.joint_target_pub.send_goal(targets)
             # try:
             #     self.joint_target_pub.wait_for_result()
             # except KeyboardInterrupt:
             #     self.joint_target_pub.cancel_goal()
                 # raise
-
-
-
         else:
             rospy.sleep(self.time_to_target)
         
