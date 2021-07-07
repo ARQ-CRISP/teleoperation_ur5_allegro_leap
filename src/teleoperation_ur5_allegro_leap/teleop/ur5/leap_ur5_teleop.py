@@ -130,17 +130,17 @@ class Leap_Teleop_UR5():
                 rot_dist = 1 - np.asarray(list(self.target.M.GetQuaternion())).dot(list(self.target.M.GetQuaternion()))
                 pos_dist = np.linalg.norm(np.asarray(list(self.previous_tf.p)) - np.asarray(list(wrist_f.p)))
                                           
-                if (rot_dist > 1e-3) or (pos_dist > 1e-3):
+                if (rot_dist > 1e-2) or (pos_dist > 1e-5):
                     self.target.p = wrist_f.p - self.previous_tf.p
                     self.target.M = wrist_f.M
                     
-                    # filtered_pos, filtered_quat = self.filter_pose(list(self.target.p), list(self.target.M.GetQuaternion()))
+                    filtered_pos, filtered_quat = self.filter_pose(list(self.target.p), list(self.target.M.GetQuaternion()))
                     
                     # print((np.asarray(list(self.target.p))-filtered_pos).round(3)) 
                     # print(np.asarray((self.target.M * Rotation.Quaternion(*filtered_quat).Inverse()).GetQuaternion()).round(3))
 
-                    # self.current_pose.p += Vector(*filtered_pos.round(3))
-                    self.current_pose.p += self.target.p
+                    self.current_pose.p += Vector(*filtered_pos.round(4))
+                    # self.current_pose.p += self.target.p
                     # self.current_pose.M = Rotation.Quaternion(*filtered_quat)#
                     self.current_pose.M = self.target.M
                     
