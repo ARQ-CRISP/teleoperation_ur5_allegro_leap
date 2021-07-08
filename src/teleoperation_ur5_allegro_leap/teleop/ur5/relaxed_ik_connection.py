@@ -169,13 +169,13 @@ class Relaxed_UR5_Connection():
             # res *= np.sign(diff)
             rospy.loginfo(str(diff))
             # self.add_to_buffer((np.asarray(joint_angle_msg.angles.data) + diff).tolist())
-    def interpolate_trajectory(self, next_pos, N=3):
+    def interpolate_trajectory(self, next_pos, N=13):
         def sigmoid(x): return 1 / (1 + np.exp(-x))
         old_jangles = np.asarray(self.last_j_state)
         js_postion = np.asarray(next_pos)
         self.jangles = JointState(name=self.jnames, position=next_pos)
         dist = np.absolute((js_postion - old_jangles))
-        T = dist.max()/(np.pi/2500.)
+        T = dist.max()/(np.pi/15000.)
         end_velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T)
 
         t_steps = np.linspace(0, T, N)
