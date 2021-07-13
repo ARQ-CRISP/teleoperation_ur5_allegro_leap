@@ -139,7 +139,7 @@ class Leap_Teleop_UR5():
                     # print((np.asarray(list(self.target.p))-filtered_pos).round(3)) 
                     # print(np.asarray((self.target.M * Rotation.Quaternion(*filtered_quat).Inverse()).GetQuaternion()).round(3))
 
-                    self.current_pose.p += Vector(*filtered_pos.round(4))
+                    self.current_pose.p += Vector(*filtered_pos.round(4)) * .5
                     # self.current_pose.p += self.target.p
                     # self.current_pose.M = Rotation.Quaternion(*filtered_quat)#
                     self.current_pose.M = self.target.M
