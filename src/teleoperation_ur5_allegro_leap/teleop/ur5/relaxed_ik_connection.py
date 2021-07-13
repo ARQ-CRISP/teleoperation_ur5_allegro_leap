@@ -25,7 +25,7 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 from teleoperation_ur5_allegro_leap.teleop.ur5 import WS_Bounds
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
-
+from scipy.stats import norm
 
 
 from std_msgs.msg import Int32
@@ -49,7 +49,7 @@ class Relaxed_UR5_Connection():
     goal_marker_topic = ur5_teleop_prefix + 'target_marker_debug'
     
     time_to_target = 1 / 30.
-    update_time = 1 / 60.
+    update_time = 1 / 15.
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
                 movegroup='ur5_arm', sim=True, debug_mode=False):
@@ -58,6 +58,7 @@ class Relaxed_UR5_Connection():
             trajectory=JointTrajectory(joint_names=self.jnames))
         self.jangles = JointState(name=self.jnames, position=init_state)
         self.last_j_state = self.jangles.position
+        self.last_j_vel = [0.0]*len(self.jangles.position)
         # self.__set_trajectory_buffer(init_state)
         # self.debug_buffer_size_pub = rospy.Publisher('/buffer_size', Int32, queue_size=1)
         self.add_to_buffer(init_state)
@@ -155,7 +156,7 @@ class Relaxed_UR5_Connection():
         diff = (
             np.asarray(joint_angle_msg.angles.data) - \
                 np.asarray(self.last_j_state)).round(3)
-        if 1e-16 < np.linalg.norm(diff) < max_angle :
+        if 1e-17 < np.linalg.norm(diff) < max_angle :
             rospy.loginfo(str(diff))
             self.add_to_buffer(joint_angle_msg.angles.data)
 
@@ -169,13 +170,14 @@ class Relaxed_UR5_Connection():
             # res *= np.sign(diff)
             rospy.loginfo(str(diff))
             # self.add_to_buffer((np.asarray(joint_angle_msg.angles.data) + diff).tolist())
-    def interpolate_trajectory(self, next_pos, N=13):
+    def interpolate_trajectory(self, next_pos, prev_vel=[0.]*6, N=19):
         def sigmoid(x): return 1 / (1 + np.exp(-x))
+        def velocity_fun(x): return norm(0.5,0.04).pdf(x)/10
         old_jangles = np.asarray(self.last_j_state)
         js_postion = np.asarray(next_pos)
         self.jangles = JointState(name=self.jnames, position=next_pos)
         dist = np.absolute((js_postion - old_jangles))
-        T = dist.max()/(np.pi/15000.)
+        T = dist.max()/(np.pi/((N+1)*1e3))
         end_velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T)
 
         t_steps = np.linspace(0, T, N)
@@ -183,8 +185,13 @@ class Relaxed_UR5_Connection():
         # steps = 1 - np.exp(np.linspace(-1, 0, N)).reshape(-1,1)
         steps = sigmoid(10*(np.linspace(0, 1, N)-0.5)).reshape(-1,1)
         pos_steps = old_jangles * (1-steps) + (steps) * js_postion
-        vel_steps = np.sin(np.pi*steps) * end_velocity
-
+        vel_steps = np.zeros((N, 6))
+        vel_increments = np.sin(np.pi * steps)
+        # vel_increments = velocity_fun(steps)
+        # vel_steps[:int(N/2)] = vel_increments[:int(N/2)] * end_velocity + (1 - vel_increments[:int(N/2)]) * np.asarray(prev_vel) *.5 
+        # vel_steps[int(N/2):] = vel_increments[int(N/2):] * end_velocity
+        vel_step = vel_increments * end_velocity
+        
         viapoints = [JointTrajectoryPoint(
                         positions=pos.tolist(),
                         velocities=vel.tolist(), 
@@ -201,15 +208,17 @@ class Relaxed_UR5_Connection():
         #         np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
         
         # T = rospy.Duration(5.)
+        T = rospy.Duration(dist.max()/(np.pi/30000.))
+        velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T.to_sec()).tolist()
         if self.sim:
             self.jangles = JointState(name=self.jnames, position=js_postion)
             self.jstate_buffer.append(deepcopy(self.jangles))
         else:
             if np.any(dist > 1e-3):
-                T = rospy.Duration(dist.max()/(np.pi/2500.))
-                velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T.to_sec()).tolist()
+                
+                
                 n = len(self.jstate_buffer.trajectory.points)
-
+                old_vel = self.last_j_vel
                 print(T.to_sec(), (np.pi/1500.))
                 # self.jstate_buffer.trajectory.points.append(
                 #     JointTrajectoryPoint(
@@ -226,6 +235,7 @@ class Relaxed_UR5_Connection():
                 #         velocities=velocity, 
                 #         time_from_start=T)]
         self.last_j_state = js_postion
+        self.last_j_vel = velocity
 
     def on_kill(self):
         if self.joint_target_pub is not None:
@@ -248,7 +258,7 @@ class Relaxed_UR5_Connection():
         elif not self.sim and len(self.jstate_buffer.trajectory.points) > 0:
             # self.joint_target_pub.wait_for_result() #
             targets, self.jstate_buffer.trajectory.points = deepcopy(self.jstate_buffer), []
-            # self.joint_target_pub.cancel_goal()
+            self.joint_target_pub.cancel_goal()
             self.joint_target_pub.send_goal(targets)
             # try:
             #     self.joint_target_pub.wait_for_result()
