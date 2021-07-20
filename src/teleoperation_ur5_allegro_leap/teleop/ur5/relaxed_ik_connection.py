@@ -25,6 +25,7 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 from teleoperation_ur5_allegro_leap.teleop.ur5 import WS_Bounds
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
+from teleoperation_ur5_allegro_leap.teleop.ur5 import JointMovementManager
 from scipy.stats import norm
 
 
@@ -56,14 +57,15 @@ class Relaxed_UR5_Connection():
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
                 movegroup='ur5_arm', sim=True, debug_mode=False):
         self.sim = sim
-        self.jstate_buffer = [] if sim else FollowJointTrajectoryGoal(
-            trajectory=JointTrajectory(joint_names=self.jnames))
-        self.jangles = JointState(name=self.jnames, position=init_state)
-        self.last_j_state = self.jangles.position
-        self.last_j_vel = [0.0]*len(self.jangles.position)
+        # self.jstate_buffer = [] if sim else FollowJointTrajectoryGoal(
+        #     trajectory=JointTrajectory(joint_names=self.jnames))
+        # self.jangles = JointState(name=self.jnames, position=init_state)
+        # self.last_j_state = self.jangles.position
+        # self.last_j_vel = [0.0]*len(self.jangles.position)
+        
         # self.__set_trajectory_buffer(init_state)
         # self.debug_buffer_size_pub = rospy.Publisher('/buffer_size', Int32, queue_size=1)
-        self.add_to_buffer(init_state)
+        # self.add_to_buffer(init_state)
         
         
         self.rotation_bias = Frame(Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0))
@@ -74,31 +76,24 @@ class Relaxed_UR5_Connection():
         
         self.ur5_target_subscriber = None
         self.joint_target_pub = None
-        self.set_controller_driver_connection()
+        self.joint_manager = JointMovementManager.generate_manager(init_state, sim=sim)
+        # self.set_controller_driver_connection()
         self.goal_pub = rospy.Publisher(self.relaxed_ik_pose_goals_topic, EEPoseGoals, queue_size=10)
         self.solution_sub = rospy.Subscriber(
             self.relaxed_ik_solutions_topic, JointAngles, self.OnSolutionReceived, queue_size=1)
 
         self.debug_mode = debug_mode
         roscpp_initialize(sys.argv)
-        self.moveit_interface =  movegroup if isinstance(movegroup, MoveGroupCommander) else MoveGroupCommander(movegroup)
+        self.moveit_interface = movegroup if isinstance(movegroup, MoveGroupCommander) else MoveGroupCommander(movegroup)
         
-        self.moveit_interface.go(joints=self.jangles, wait=True) #go to the initial position requested to relaxed_ik
+        self.moveit_interface.go(
+            joints=JointState(name=self.jnames, position=init_state),
+            wait=True) #go to the initial position requested to relaxed_ik
         self.OnSolutionReceived(JointAngles(angles=Float64(init_state)))
         pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose #get the pose relative to world
         
         
         self.init_pose = pm.fromMsg(pose)
-
-            
-    def set_controller_driver_connection(self):
-        if not self.sim:
-            self.joint_target_pub = actionlib.SimpleActionClient(self.real_robot_action_server, FollowJointTrajectoryAction)
-            rospy.loginfo("[" + rospy.get_name() + "]" + " Waiting for server...")
-            self.joint_target_pub.wait_for_server()
-            rospy.loginfo("[" + rospy.get_name() + "]" + " Connected to Robot!") 
-        else:
-            self.joint_target_pub = rospy.Publisher(self.joint_states_topic, JointState, queue_size=1)
 
 
     def set_debug_properties(self):
@@ -153,14 +148,17 @@ class Relaxed_UR5_Connection():
         Args:
             joint_angle_msg (relaxed_ik.msg.JointAngles): The JointAngles solution message
         """
-        max_angle = np.pi/8.
+        max_angle = np.pi/5.
         # print(joint_angle_msg.angles.data)
         diff = (
             np.asarray(joint_angle_msg.angles.data) - \
-                np.asarray(self.last_j_state)).round(3)
-        if 1e-17 < np.linalg.norm(diff) < max_angle :
+                np.asarray(self.joint_manager.last_j_state_target)).round(3)
+        if 1e-17 < np.max(diff) < max_angle :
             rospy.loginfo(str(diff))
-            self.add_to_buffer(joint_angle_msg.angles.data)
+            self.joint_manager.generate_movement(joint_angle_msg.angles.data)
+            # target = self.joint_manager.define_trajectory(joint_angle_msg.angles.data)
+            # self.joint_manager.go_to(target)
+            # self.add_to_buffer(joint_angle_msg.angles.data)
 
         elif np.any(np.absolute(diff) >= max_angle):
             rospy.logwarn('Arm seems to move too fast! Difference of sequencial joint angles too damn high!')
@@ -172,112 +170,104 @@ class Relaxed_UR5_Connection():
             # res *= np.sign(diff)
             rospy.loginfo(str(diff))
             # self.add_to_buffer((np.asarray(joint_angle_msg.angles.data) + diff).tolist())
-    def interpolate_trajectory(self, next_pos, prev_vel=[0.]*6, N=19):
-        def sigmoid(x): return 1 / (1 + np.exp(-x))
-        def velocity_fun(x): return norm(0.5,0.04).pdf(x)/10
-        old_jangles = np.asarray(self.last_j_state)
-        js_postion = np.asarray(next_pos)
-        self.jangles = JointState(name=self.jnames, position=next_pos)
-        dist = np.absolute((js_postion - old_jangles))
-        T = dist.max()/(np.pi/((N+1)*1e3))
-        end_velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T)
+    # def interpolate_trajectory(self, next_pos, prev_vel=[0.]*6, N=19):
+    #     def sigmoid(x): return 1 / (1 + np.exp(-x))
+    #     def velocity_fun(x): return norm(0.5,0.04).pdf(x)/10
+    #     old_jangles = np.asarray(self.last_j_state)
+    #     js_postion = np.asarray(next_pos)
+    #     self.jangles = JointState(name=self.jnames, position=next_pos)
+    #     dist = np.absolute((js_postion - old_jangles))
+    #     T = dist.max()/(np.pi/((N+1)*1e3))
+    #     end_velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T)
 
-        t_steps = np.linspace(0, T, N)
-        # steps = np.linspace(0, 1, N).reshape(-1,1)
-        # steps = 1 - np.exp(np.linspace(-1, 0, N)).reshape(-1,1)
-        steps = sigmoid(10*(np.linspace(0, 1, N)-0.5)).reshape(-1,1)
-        pos_steps = old_jangles * (1-steps) + (steps) * js_postion
-        vel_steps = np.zeros((N, 6))
-        vel_increments = np.sin(np.pi * steps)
-        # vel_increments = velocity_fun(steps)
-        # vel_steps[:int(N/2)] = vel_increments[:int(N/2)] * end_velocity + (1 - vel_increments[:int(N/2)]) * np.asarray(prev_vel) *.5 
-        # vel_steps[int(N/2):] = vel_increments[int(N/2):] * end_velocity
-        vel_steps = vel_increments * end_velocity
+    #     t_steps = np.linspace(0, T, N)
+    #     # steps = np.linspace(0, 1, N).reshape(-1,1)
+    #     # steps = 1 - np.exp(np.linspace(-1, 0, N)).reshape(-1,1)
+    #     steps = sigmoid(10*(np.linspace(0, 1, N)-0.5)).reshape(-1,1)
+    #     pos_steps = old_jangles * (1-steps) + (steps) * js_postion
+    #     vel_steps = np.zeros((N, 6))
+    #     vel_increments = np.sin(np.pi * steps)
+    #     # vel_increments = velocity_fun(steps)
+    #     # vel_steps[:int(N/2)] = vel_increments[:int(N/2)] * end_velocity + (1 - vel_increments[:int(N/2)]) * np.asarray(prev_vel) *.5 
+    #     # vel_steps[int(N/2):] = vel_increments[int(N/2):] * end_velocity
+    #     vel_steps = vel_increments * end_velocity
         
-        viapoints = [JointTrajectoryPoint(
-                        positions=pos.tolist(),
-                        velocities=vel.tolist(), 
-                        time_from_start=rospy.Duration(t)) for t, pos, vel in zip(t_steps, pos_steps, vel_steps)]
-        # viapoints[-1].velocities = [0.0]*6
-        return viapoints
+    #     viapoints = [JointTrajectoryPoint(
+    #                     positions=pos.tolist(),
+    #                     velocities=vel.tolist(), 
+    #                     time_from_start=rospy.Duration(t)) for t, pos, vel in zip(t_steps, pos_steps, vel_steps)]
+    #     # viapoints[-1].velocities = [0.0]*6
+    #     return viapoints
             
 
-    def add_to_buffer(self, js_postion):
-        old_jangles = self.last_j_state
-        dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles)))
-        # diff = (
-        #     np.asarray(js_postion) - \
-        #         np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
+    # def add_to_buffer(self, js_postion):
+    #     old_jangles = self.last_j_state
+    #     dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles)))
+    #     # diff = (
+    #     #     np.asarray(js_postion) - \
+    #     #         np.asarray(self.moveit_interface.get_current_joint_values())).round(3)
         
-        # T = rospy.Duration(5.)
-        T = rospy.Duration(dist.max()/(np.pi/30000.))
-        velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T.to_sec()).tolist()
-        if self.sim:
-            self.jangles = JointState(name=self.jnames, position=js_postion)
-            self.jstate_buffer.append(deepcopy(self.jangles))
-        else:
-            if np.any(dist > 1e-3):
+    #     # T = rospy.Duration(5.)
+    #     T = rospy.Duration(dist.max()/(np.pi/30000.))
+    #     velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T.to_sec()).tolist()
+    #     if self.sim:
+    #         self.jangles = JointState(name=self.jnames, position=js_postion)
+    #         self.jstate_buffer.append(deepcopy(self.jangles))
+    #     else:
+    #         if np.any(dist > 1e-3):
                 
                 
-                n = len(self.jstate_buffer.trajectory.points)
-                old_vel = self.last_j_vel
-                print(T.to_sec(), (np.pi/1500.))
-                # self.jstate_buffer.trajectory.points.append(
-                #     JointTrajectoryPoint(
-                #         positions=js_postion,
-                #         velocities=[np.pi/1000.]*6, 
-                #         accelerations=[np.pi/100.]*6, 
-                #         time_from_start=rospy.Duration((n + 1) * self.time_to_target)))
-                viapoints = self.interpolate_trajectory(js_postion)
-                # print(viapoints)
-                self.jstate_buffer.trajectory.points = viapoints
-                # self.jstate_buffer.trajectory.points=[
-                #     JointTrajectoryPoint(
-                #         positions=js_postion,
-                #         velocities=velocity, 
-                #         time_from_start=T)]
-        self.last_j_state = js_postion
-        self.last_j_vel = velocity
+    #             n = len(self.jstate_buffer.trajectory.points)
+    #             old_vel = self.last_j_vel
+    #             print(T.to_sec(), (np.pi/1500.))
+    #             # self.jstate_buffer.trajectory.points.append(
+    #             #     JointTrajectoryPoint(
+    #             #         positions=js_postion,
+    #             #         velocities=[np.pi/1000.]*6, 
+    #             #         accelerations=[np.pi/100.]*6, 
+    #             #         time_from_start=rospy.Duration((n + 1) * self.time_to_target)))
+    #             viapoints = self.interpolate_trajectory(js_postion)
+    #             # print(viapoints)
+    #             self.jstate_buffer.trajectory.points = viapoints
+    #             # self.jstate_buffer.trajectory.points=[
+    #             #     JointTrajectoryPoint(
+    #             #         positions=js_postion,
+    #             #         velocities=velocity, 
+    #             #         time_from_start=T)]
+    #     self.last_j_state = js_postion
+    #     self.last_j_vel = velocity
 
     def on_kill(self):
         if self.joint_target_pub is not None:
             self.joint_target_pub.cancel_goal()
             
-    def consume_buffer(self):
-        # jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)
-        if self.sim and len(self.jstate_buffer) > 0:
+    # def consume_buffer(self):
+    #     # jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)
+    #     if self.sim and len(self.jstate_buffer) > 0:
             
-            buffer, self.jstate_buffer = deepcopy(self.jstate_buffer), []
-            for jstate in buffer:
-                # for k, jnts in enumerate(jnt_pts[-1:]):
-                # self.jangles.position = joint_angle_msg.angles.data
-                jstate.header.stamp = rospy.Time.now()
-                # self.jangles.header.seq = k
-                self.joint_target_pub.publish(self.jangles)
-                rospy.sleep(self.time_to_target)
+    #         buffer, self.jstate_buffer = deepcopy(self.jstate_buffer), []
+    #         for jstate in buffer:
+    #             # for k, jnts in enumerate(jnt_pts[-1:]):
+    #             # self.jangles.position = joint_angle_msg.angles.data
+    #             jstate.header.stamp = rospy.Time.now()
+    #             # self.jangles.header.seq = k
+    #             self.joint_target_pub.publish(self.jangles)
+    #             rospy.sleep(self.time_to_target)
             
         
-        elif not self.sim and len(self.jstate_buffer.trajectory.points) > 0:
-            # self.joint_target_pub.wait_for_result() #
-            targets, self.jstate_buffer.trajectory.points = deepcopy(self.jstate_buffer), []
-            self.joint_target_pub.cancel_goal()
-            self.joint_target_pub.send_goal(targets)
-            # try:
-            #     self.joint_target_pub.wait_for_result()
-            # except KeyboardInterrupt:
-            #     self.joint_target_pub.cancel_goal()
-                # raise
-        else:
-            rospy.sleep(self.time_to_target)
+    #     elif not self.sim and len(self.jstate_buffer.trajectory.points) > 0:
+    #         # self.joint_target_pub.wait_for_result() #
+    #         targets, self.jstate_buffer.trajectory.points = deepcopy(self.jstate_buffer), []
+    #         self.joint_target_pub.cancel_goal()
+    #         self.joint_target_pub.send_goal(targets)
+    #         # try:
+    #         #     self.joint_target_pub.wait_for_result()
+    #         # except KeyboardInterrupt:
+    #         #     self.joint_target_pub.cancel_goal()
+    #             # raise
+    #     else:
+    #         rospy.sleep(self.time_to_target)
         
-    def make_joint_trajectory(self, target, steps=3):
-        source = self.moveit_interface.get_current_joint_values()
-        tgt = np.asarray(target)
-        p = np.linspace(0, 1., steps)
-        pts = np.zeros(steps, tgt.shape[0])
-        pts = p * tgt + (1-p) * source
-        # pts = np.linspace(source, target, steps).tolist()
-        return pts.tolist()
         
     def OnPoseRequest(self, pose_stamped):
         request = pm.fromMsg(pose_stamped.pose)

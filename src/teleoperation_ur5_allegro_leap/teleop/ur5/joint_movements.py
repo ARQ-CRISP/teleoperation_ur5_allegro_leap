@@ -42,21 +42,21 @@ class JointMovementManager(object):
         self.current_j_state = self.ur_state(init_state, [0.0] * len(init_state), [0.0] * len(init_state))
         
     def generate_movement(self, j_target): 
-        old_jangles = self.last_j_state 
+        old_jangles = self.last_j_state_target
         dist = np.absolute((np.asarray(j_target) - np.asarray(old_jangles)))
         T = rospy.Duration(dist.max()/(np.pi/30000.))
         velocity = ((np.asarray(j_target) - np.asarray(old_jangles)) / T.to_sec()).tolist()
         if np.any(dist > 1e-3):
             target = self.define_trajectory(j_target, velocity, T)
             self.go_to(target)
-            self.last_j_state = j_target
+            self.last_j_state_target = j_target
             self.last_j_vel = velocity
             
     def listen_j_state(self, msg):
         ur_joint_idx = [idx for idx, name in enumerate(msg.name) if name in self.jnames]
         pos = [msg.position[idx] for idx in ur_joint_idx]
-        velocity = [msg.velocity[idx] for idx in ur_joint_idx]
-        effort = [msg.effort[idx] for idx in ur_joint_idx]
+        velocity = [msg.velocity[idx] for idx in ur_joint_idx] if len(msg.velocity) > 0 else [0.0] * len(pos)
+        effort = [msg.effort[idx] for idx in ur_joint_idx] if len(msg.effort) > 0 else [0.0] * len(pos)
         self.current_j_state = self.ur_state(pos, velocity, effort) 
         
     @abstractmethod    
@@ -66,6 +66,26 @@ class JointMovementManager(object):
     @abstractmethod
     def go_to(self, target):
         raise NotImplementedError
+    
+    def interp_traj(self, j_target, max_vel, duration, N=19):
+        old_jangles = np.asarray(self.last_j_state_target)
+        #TODO check what happens using the current state that you listen to
+        js_postion = np.asarray(j_target)
+        
+        # self.jangles = JointState(name=self.jnames, position=next_pos)
+        dist = np.absolute((js_postion - old_jangles))
+        T = max(dist.max()/(np.pi/((N+1)*1e3)), duration)
+        # end_velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T)
+        t_steps = np.linspace(0, T, N)
+        
+        steps = sigmoid(10*(np.linspace(0, 1, N)-0.5)).reshape(-1,1)
+        pos_steps = old_jangles * (1-steps) + (steps) * js_postion
+        vel_steps = np.zeros((N, 6))
+        vel_increments = np.sin(np.pi * steps)
+        
+        vel_steps = vel_increments * max_vel
+        
+        return (t_steps, pos_steps, vel_steps)
         
 
 class SimJointMovementManager(JointMovementManager):
@@ -81,15 +101,15 @@ class SimJointMovementManager(JointMovementManager):
         self.joint_listener = rospy.Subscriber(self.joint_listener_topic, JointState, self.listen_j_state)
         
     def define_trajectory(self, js_postion, j_velocity=None, duration=None):
-        old_jangles = self.last_j_state
-        dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles)))
+        old_jangles = self.last_j_state_target
+        # dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles)))
         return JointState(name=self.jnames, position=js_postion)
         # self.jstate_buffer.append(deepcopy(self.jangles)) this is in the go_to
         
     def go_to(self, target):
         target.header.stamp = rospy.Time.now()
                 # self.jangles.header.seq = k
-        self.joint_target_pub.publish(self.jangles)
+        self.joint_target_pub.publish(target)
         # rospy.sleep(self.time_to_target)
         
         
@@ -114,7 +134,7 @@ class RealJointMovementManager(JointMovementManager):
         self.current_j_state = [msg.position[idx] for idx in ur_joint_idx]
     
     def define_trajectory(self, js_postion, j_velocity, duration):
-        old_jangles = self.last_j_state
+        old_jangles = self.last_j_state_target
         dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles)))
         
     
@@ -128,24 +148,7 @@ class RealJointMovementManager(JointMovementManager):
                         velocities=vel.tolist(), 
                         time_from_start=rospy.Duration(t)) for t, pos, vel in zip(*viapoints)]
     
-    def interp_traj(self, j_target, max_vel, duration, N=19):
-        old_jangles = np.asarray(self.last_j_state)
-        js_postion = np.asarray(j_target)
-        
-        # self.jangles = JointState(name=self.jnames, position=next_pos)
-        dist = np.absolute((js_postion - old_jangles))
-        T = max(dist.max()/(np.pi/((N+1)*1e3)), duration)
-        # end_velocity = ((np.asarray(js_postion) - np.asarray(old_jangles)) / T)
-        t_steps = np.linspace(0, T, N)
-        
-        steps = sigmoid(10*(np.linspace(0, 1, N)-0.5)).reshape(-1,1)
-        pos_steps = old_jangles * (1-steps) + (steps) * js_postion
-        vel_steps = np.zeros((N, 6))
-        vel_increments = np.sin(np.pi * steps)
-        
-        vel_steps = vel_increments * max_vel
-        
-        return (t_steps, pos_steps, vel_steps)
+    
     
     
     
