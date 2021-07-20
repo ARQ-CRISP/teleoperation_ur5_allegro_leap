@@ -190,7 +190,7 @@ class Relaxed_UR5_Connection():
         # vel_increments = velocity_fun(steps)
         # vel_steps[:int(N/2)] = vel_increments[:int(N/2)] * end_velocity + (1 - vel_increments[:int(N/2)]) * np.asarray(prev_vel) *.5 
         # vel_steps[int(N/2):] = vel_increments[int(N/2):] * end_velocity
-        vel_step = vel_increments * end_velocity
+        vel_steps = vel_increments * end_velocity
         
         viapoints = [JointTrajectoryPoint(
                         positions=pos.tolist(),
@@ -258,7 +258,7 @@ class Relaxed_UR5_Connection():
         elif not self.sim and len(self.jstate_buffer.trajectory.points) > 0:
             # self.joint_target_pub.wait_for_result() #
             targets, self.jstate_buffer.trajectory.points = deepcopy(self.jstate_buffer), []
-            self.joint_target_pub.cancel_goal()
+            # self.joint_target_pub.cancel_goal()
             self.joint_target_pub.send_goal(targets)
             # try:
             #     self.joint_target_pub.wait_for_result()
