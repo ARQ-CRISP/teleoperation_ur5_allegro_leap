@@ -33,6 +33,8 @@ from std_msgs.msg import Int32
 # jorder = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 # realj = [2.3744237422943115, -2.0752771536456507, -1.7465012709247034, -0.8918698469745081, 1.5678939819335938, 0.013490866869688034]
 
+
+
 class Relaxed_UR5_Connection():
     
     jnames = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 
@@ -190,7 +192,7 @@ class Relaxed_UR5_Connection():
         # vel_increments = velocity_fun(steps)
         # vel_steps[:int(N/2)] = vel_increments[:int(N/2)] * end_velocity + (1 - vel_increments[:int(N/2)]) * np.asarray(prev_vel) *.5 
         # vel_steps[int(N/2):] = vel_increments[int(N/2):] * end_velocity
-        vel_step = vel_increments * end_velocity
+        vel_steps = vel_increments * end_velocity
         
         viapoints = [JointTrajectoryPoint(
                         positions=pos.tolist(),
