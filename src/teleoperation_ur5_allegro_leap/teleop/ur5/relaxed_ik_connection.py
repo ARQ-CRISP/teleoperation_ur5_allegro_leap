@@ -152,7 +152,7 @@ class Relaxed_UR5_Connection():
         # print(joint_angle_msg.angles.data)
         diff = (
             np.asarray(joint_angle_msg.angles.data) - \
-                np.asarray(self.joint_manager.last_j_state_target)).round(3)
+                np.asarray(self.joint_manager.last_j_state_target)).round(2)
         if 1e-17 < np.max(diff) < max_angle :
             rospy.loginfo(str(diff))
             self.joint_manager.generate_movement(joint_angle_msg.angles.data)
