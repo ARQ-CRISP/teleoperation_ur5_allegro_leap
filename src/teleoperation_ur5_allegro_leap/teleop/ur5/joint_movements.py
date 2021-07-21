@@ -36,16 +36,30 @@ class JointMovementManager(object):
         return cls(init_state)
     
     def  __init__(self, init_state=[0., 0., 0., 0., 0., 0.]):
+        self.N = 5
         self.last_j_state_target = init_state
         self.last_j_vel = [0.0] * len(init_state)
         self.last_j_trajectory = JointTrajectory(joint_names=self.jnames)
         self.current_j_state = self.ur_state(init_state, [0.0] * len(init_state), [0.0] * len(init_state))
         
+    @abstractmethod    
+    def define_trajectory(self, js_postion, j_velocity=None, duration=None):
+        raise NotImplementedError
+    
+    @abstractmethod
+    def go_to(self, target):
+        raise NotImplementedError
+
+    @abstractmethod
+    def terminate(self):
+        raise NotImplementedError
+
     def generate_movement(self, j_target): 
         old_jangles = self.last_j_state_target
-        dist = np.absolute((np.asarray(j_target) - np.asarray(old_jangles)))
-        T = rospy.Duration(dist.max()/(np.pi/30000.))
-        velocity = ((np.asarray(j_target) - np.asarray(old_jangles)) / T.to_sec()).tolist()
+        old_jangles2 = np.asarray((self.current_j_state.position))
+        dist = np.absolute((np.asarray(j_target) - np.asarray(old_jangles2)))
+        T = rospy.Duration(dist.max()/(np.pi/20.))
+        velocity = ((np.asarray(j_target) - np.asarray(old_jangles2)) / T.to_sec()).tolist()
         if np.any(dist > 1e-3):
             target = self.define_trajectory(j_target, velocity, T)
             self.go_to(target)
@@ -58,15 +72,9 @@ class JointMovementManager(object):
         pos = [msg.position[idx] for idx in ur_joint_idx]
         velocity = [msg.velocity[idx] for idx in ur_joint_idx] if len(msg.velocity) > 0 else [0.0] * len(pos)
         effort = [msg.effort[idx] for idx in ur_joint_idx] if len(msg.effort) > 0 else [0.0] * len(pos)
+        rospy.sleep(1/50)
         self.current_j_state = self.ur_state(pos, velocity, effort) 
         
-    @abstractmethod    
-    def define_trajectory(self, js_postion, j_velocity=None, duration=None):
-        raise NotImplementedError
-    
-    @abstractmethod
-    def go_to(self, target):
-        raise NotImplementedError
     
     def interp_traj(self, j_target, max_vel, max_duration, N=19):
         duration = max_duration.to_sec() if isinstance(max_duration, rospy.Duration) else max_duration
@@ -79,19 +87,20 @@ class JointMovementManager(object):
         # self.jangles = JointState(name=self.jnames, position=next_pos)
         dist = np.absolute((js_position - old_jangles))
         dist2 = np.absolute((js_position - old_jangles2))
-        T = dist2.max()/(np.pi/((N+1)*1e1))
+        T = dist2.max()/(np.pi/((N+1)*1.5e0))
         # T = max(dist.max()/(np.pi/((N+1)*1e3)), duration)
         # end_velocity = ((np.asarray(js_position) - np.asarray(old_jangles)) / T)
         t_steps = np.linspace(0, T, N)
         
         steps = sigmoid(10*(np.linspace(0, 1, N)-0.5)).reshape(-1,1)
-        pos_steps = old_jangles * (1-steps) + (steps) * js_position
-        vel_steps = np.zeros((N, 6))
+        pos_steps = old_jangles2 * (1-steps) + (steps) * js_position
+        # vel_steps = np.zeros((N, 6))
         vel_increments = np.sin(np.pi * steps)
         
-        vel_steps = vel_increments * max_vel
+        vel_steps = vel_increments * max_vel 
         
-        return (t_steps, pos_steps, vel_steps)
+        vel_steps[:, -1] *= 1/3.
+        return (t_steps[-2:-1], pos_steps[-2:-1], vel_steps[-2:-1])
         
 
 class SimJointMovementManager(JointMovementManager):
@@ -117,7 +126,10 @@ class SimJointMovementManager(JointMovementManager):
                 # self.jangles.header.seq = k
         self.joint_target_pub.publish(target)
         # rospy.sleep(self.time_to_target)
-        
+
+    def terminate(self):
+        self.joint_listener.unregister()
+        self.joint_target_pub.unregister()
         
 class RealJointMovementManager(JointMovementManager):
     real_robot_action_server = '/scaled_pos_joint_traj_controller/follow_joint_trajectory'
@@ -127,7 +139,7 @@ class RealJointMovementManager(JointMovementManager):
         super(RealJointMovementManager, self).__init__(init_state)
         self.joint_target_pub = actionlib.SimpleActionClient(self.real_robot_action_server, FollowJointTrajectoryAction)
         rospy.loginfo("[" + rospy.get_name() + "]" + " Waiting for control server...")
-        self.joint_listener = rospy.Subscriber(self.joint_listener_topic, JointState, self.listen_j_state)
+        self.joint_listener = rospy.Subscriber(self.joint_listener_topic, JointState, self.listen_j_state, queue_size=1)
         self.joint_target_pub.wait_for_server()
         rospy.loginfo("[" + rospy.get_name() + "]" + " Connected to Robot!")
     
@@ -138,21 +150,25 @@ class RealJointMovementManager(JointMovementManager):
             goal.trajectory.points = target
             # print(target)
             self.joint_target_pub.cancel_goal()
+            # self.joint_target_pub.stop_tracking_goal()
             self.joint_target_pub.send_goal(goal)
         
-    # def listen_j_state(self, msg):
-    #     ur_joint_idx = [idx for idx, name in enumerate(msg.name) if name in self.jnames]
-    #     self.current_j_state = [msg.position[idx] for idx in ur_joint_idx]
-    
+    def terminate(self):
+        self.joint_target_pub.cancel_all_goals()
+        # self.joint_target_pub.stop_tracking_goal()
+        self.joint_listener.unregister()
+
     def define_trajectory(self, js_postion, j_velocity, duration):
         old_jangles = self.last_j_state_target
         dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles)))
         
     
-        if np.any(dist > 1e-3):
+        if np.any(dist > 1e-4):
             
-            N = 19
-            viapoints = self.interp_traj(js_postion, j_velocity, duration, N)
+            # N = 3
+            self.N = 11
+            viapoints = self.interp_traj(js_postion, j_velocity, duration, self.N)
+            
             traj_points = [
                 JointTrajectoryPoint(
                         positions=pos.tolist(),

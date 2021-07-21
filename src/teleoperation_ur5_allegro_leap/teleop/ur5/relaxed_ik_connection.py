@@ -75,7 +75,7 @@ class Relaxed_UR5_Connection():
         self.set_absolute_mode_flag(self.get_absolute_mode_flag()) # sets to default value
         
         self.ur5_target_subscriber = None
-        self.joint_target_pub = None
+        # self.joint_target_pub = None
         self.joint_manager = JointMovementManager.generate_manager(init_state, sim=sim)
         # self.set_controller_driver_connection()
         self.goal_pub = rospy.Publisher(self.relaxed_ik_pose_goals_topic, EEPoseGoals, queue_size=10)
@@ -152,7 +152,7 @@ class Relaxed_UR5_Connection():
         # print(joint_angle_msg.angles.data)
         diff = (
             np.asarray(joint_angle_msg.angles.data) - \
-                np.asarray(self.joint_manager.last_j_state_target)).round(2)
+                np.asarray(self.joint_manager.current_j_state.position)).round(2)
         if 1e-17 < np.max(diff) < max_angle :
             rospy.loginfo(str(diff))
             self.joint_manager.generate_movement(joint_angle_msg.angles.data)
@@ -238,8 +238,8 @@ class Relaxed_UR5_Connection():
     #     self.last_j_vel = velocity
 
     def on_kill(self):
-        if self.joint_target_pub is not None:
-            self.joint_target_pub.cancel_goal()
+        if self.joint_manager is not None:
+            self.joint_manager.terminate()
             
     # def consume_buffer(self):
     #     # jnt_pts = self.make_joint_trajectory(joint_angle_msg.angles.data, 3)

@@ -130,7 +130,7 @@ class Leap_Teleop_UR5():
                 rot_dist = 1 - np.asarray(list(self.target.M.GetQuaternion())).dot(list(self.target.M.GetQuaternion()))
                 pos_dist = np.linalg.norm(np.asarray(list(self.previous_tf.p)) - np.asarray(list(wrist_f.p)))
                                           
-                if (rot_dist > 1e-2) or (pos_dist > 1e-5):
+                if (rot_dist > 1e-3) or (pos_dist > 1e-5):
                     self.target.p = wrist_f.p - self.previous_tf.p
                     self.target.M = wrist_f.M
                     
