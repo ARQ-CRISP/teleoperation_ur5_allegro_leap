@@ -35,7 +35,7 @@ if __name__ == '__main__':
         movegroup='ur5_arm',
         sim=is_sim, debug_mode=True)
     
-    connection.listen()
+    # connection.listen()
     rospy.on_shutdown(connection.on_kill)
     # while not rospy.is_shutdown():
         # connection.consume_buffer()

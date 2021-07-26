@@ -52,6 +52,13 @@ class Leap_Teleop_Allegro():
     finger_allegro_idx = finger_allegro_idx
     # {'Index': 0, 'Middle': 1, 'Ring': 2, 'Pinky': None, 'Thumb': 3}
 
+    toggle_tracking_srv = 'allegro_teleop/toggle_tracking'
+    toggle_calibration_srv = 'allegro_teleop/toggle_calibration'
+    pose_by_name_srv = 'allegro_teleop/pose_by_name'
+    set_controller_srv = 'allegro_teleop/set_controller'
+    fingertip_distance_srv = 'allegro_teleop/fingertip_distance'
+    fingertip_update_srv = 'allegro_teleop/fingertip_update'
+    
     pose_param = "/allegro_hand_kdl/poses/cartesian_poses/"
     pose_index = 2
     pose_cartesian_r_param = "/allegroHand_right_0/gains/cartesian/pose/r"
@@ -98,20 +105,20 @@ class Leap_Teleop_Allegro():
         self.__pose_action_client = actionlib.ActionClient('pose_control_action', PoseControlAction)
         self.__pose_action_client.wait_for_server()
         
-        self.__tracking_toggler = rospy.Service('allegro_teleop/toggle_tracking', Toggle_Tracking,
+        self.__tracking_toggler = rospy.Service(self.toggle_tracking_srv, Toggle_Tracking,
                                                 lambda update: Toggle_TrackingResponse( 
                                                     self.toggle_tracking() if update.update else self.is_tracking))
-        self.__calibration_toggler = rospy.Service('allegro_teleop/toggle_calibration', Toggle_Calibration,
+        self.__calibration_toggler = rospy.Service(self.toggle_calibration_srv, Toggle_Calibration,
                                                 lambda update: Toggle_CalibrationResponse(
                                                     self.toggle_calibration_mode() if update.update else self.is_calibrating))
-        self.__pose_by_name = rospy.Service('allegro_teleop/pose_by_name', GoTo_ByName,
+        self.__pose_by_name = rospy.Service(self.pose_by_name_srv, GoTo_ByName,
                                                 lambda name: GoTo_ByNameResponse(self.goto_pose_by_name(name.posename)))
-        self.__set_controller = rospy.Service('allegro_teleop/set_controller', Toggle_Control,
+        self.__set_controller = rospy.Service(self.set_controller_srv, Toggle_Control,
                                                 lambda controller: Toggle_ControlResponse(self.set_control_type(controller.type_requested)))
-        self.__get_distance = rospy.Service('allegro_teleop/fingertip_distance', Get_Fingertip_Distance,
+        self.__get_distance = rospy.Service(self.fingertip_distance_srv, Get_Fingertip_Distance,
                                                 lambda data: Get_Fingertip_DistanceResponse(
                                                     self.get_fingertip_distance(data.finger1, data.finger2)))
-        self.__update_measure = rospy.Service('allegro_teleop/fingertip_update', Update_Finger_Measure,
+        self.__update_measure = rospy.Service(self.fingertip_update_srv, Update_Finger_Measure,
                                                 lambda data: Update_Finger_MeasureResponse(
                                                     self.update_finger_measure(data.finger_name)))
 

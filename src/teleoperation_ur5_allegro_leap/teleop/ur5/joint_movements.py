@@ -72,7 +72,7 @@ class JointMovementManager(object):
         pos = [msg.position[idx] for idx in ur_joint_idx]
         velocity = [msg.velocity[idx] for idx in ur_joint_idx] if len(msg.velocity) > 0 else [0.0] * len(pos)
         effort = [msg.effort[idx] for idx in ur_joint_idx] if len(msg.effort) > 0 else [0.0] * len(pos)
-        rospy.sleep(1/50)
+        # rospy.sleep(1/50)
         self.current_j_state = self.ur_state(pos, velocity, effort) 
         
     

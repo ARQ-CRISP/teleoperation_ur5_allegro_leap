@@ -21,6 +21,8 @@ from tf_conversions import fromTf, toMsg
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
 from teleoperation_ur5_allegro_leap.srv import Toggle_Tracking, Toggle_TrackingResponse
+from teleoperation_ur5_allegro_leap.srv import Arm_Cartesian_Target, Arm_Cartesian_TargetResponse
+from teleoperation_ur5_allegro_leap.srv import Toggle_ArmTeleopMode, Toggle_ArmTeleopModeResponse
 
 def transform_to_vec(T):
     t = T.transform.translation
@@ -31,15 +33,18 @@ class Leap_Teleop_UR5():
     
     leap_motion_topic = '/leap_motion/leap_device'
     marker_topic = ur5_teleop_prefix + 'target_marker'
-    pose_goal_topic = ur5_teleop_prefix + 'ur5_pose_targets'
+    pose_goal_topic = ur5_teleop_prefix + 'arm_pose_targets'
     toggle_tracking_srv = ur5_teleop_prefix + 'toggle_tracking'
+    toggle_teleop_mode_srv = ur5_teleop_prefix + 'toggle_teleop_mode'
     workspace_marker_topic = ur5_teleop_prefix + 'workspace'
     
     def __init__(self, workspace, right_hand=True):
+        
+        self.combine_with_marker = False
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(10))
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         
-        self.previous_tf = None
+        self.previous_tf = self.first_tf = None
         self.workspace = workspace
         self.create_ws_viz_properties()
         
@@ -55,16 +60,23 @@ class Leap_Teleop_UR5():
         self.target_marker.scale.x, self.target_marker.scale.y, self.target_marker.scale.z = 0.02, 0.01, 0.01
         self.target_marker.color.r = self.target_marker.color.a = 1.0
         self.target_marker.header.frame_id = 'world'
+        # self.posegoal_pub = rospy.Publisher(self.pose_goal_topic, PoseStamped, queue_size=1)
+        rospy.wait_for_service(self.pose_goal_topic)
+        self.send_target = rospy.ServiceProxy(self.pose_goal_topic, Arm_Cartesian_Target)
         self.__leap_listener = rospy.Subscriber(self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
         self.marker_pub = rospy.Publisher(self.marker_topic, Marker, queue_size=1)
-        self.posegoal_pub = rospy.Publisher(self.pose_goal_topic, PoseStamped, queue_size=1)
 
         self.position_buffer = deque(maxlen=10)
         self.orientation_buffer = deque(maxlen=10)
         
         self.__tracking_toggler = rospy.Service(self.toggle_tracking_srv, Toggle_Tracking,
-                                                lambda update: Toggle_TrackingResponse( 
-                                                    self.toggle_tracking() if update.update else self.is_tracking))
+                                                lambda msg: Toggle_TrackingResponse( 
+                                                    self.toggle_tracking() if msg.update else self.is_tracking))
+        
+        self.__teleop_mode_toggler = rospy.Service(self.toggle_teleop_mode_srv, Toggle_ArmTeleopMode,
+                                                lambda msg: Toggle_ArmTeleopModeResponse(
+                                                    self.toggle_teleop_mode() if msg.update \
+                                                        else self.combine_with_marker))
     
     def create_ws_viz_properties(self):
         self.marker_workspace_pub = rospy.Publisher(self.workspace_marker_topic, Marker, queue_size=1)
@@ -86,14 +98,24 @@ class Leap_Teleop_UR5():
         
     def toggle_tracking(self):
         if self.__leap_listener is None:
-            rospy.loginfo('UR5 Teleop: Resuming Tracking!')
+            rospy.loginfo('Arm Teleop: Resuming Tracking!')
             self.__leap_listener = rospy.Subscriber(
                 self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
         else:
-            rospy.loginfo('UR5 Teleop: Tracking Interrupted!')
+            rospy.loginfo('Arm Teleop: Tracking Interrupted!')
             self.__leap_listener.unregister()
             self.__leap_listener = None
         return self.is_tracking    
+    
+    def toggle_teleop_mode(self):
+        self.combine_with_marker = not self.combine_with_marker
+        
+        if not self.combine_with_marker:
+            rospy.loginfo('Arm Teleop Mode: Absolute!')
+        else:
+            rospy.loginfo('Arm Teleop Mode: Relative to Marker!')
+            
+        return self.combine_with_marker    
             
     @property         
     def is_tracking(self):
@@ -131,28 +153,38 @@ class Leap_Teleop_UR5():
                 pos_dist = np.linalg.norm(np.asarray(list(self.previous_tf.p)) - np.asarray(list(wrist_f.p)))
                                           
                 if (rot_dist > 1e-3) or (pos_dist > 1e-5):
-                    self.target.p = wrist_f.p - self.previous_tf.p
-                    self.target.M = wrist_f.M
-                    
-                    filtered_pos, filtered_quat = self.filter_pose(list(self.target.p), list(self.target.M.GetQuaternion()))
-                    
-                    # print((np.asarray(list(self.target.p))-filtered_pos).round(3)) 
-                    # print(np.asarray((self.target.M * Rotation.Quaternion(*filtered_quat).Inverse()).GetQuaternion()).round(3))
-
-                    self.current_pose.p += Vector(*filtered_pos.round(4)) * .5
-                    # self.current_pose.p += self.target.p
-                    # self.current_pose.M = Rotation.Quaternion(*filtered_quat)#
-                    self.current_pose.M = self.target.M
-                    
-                    bound_pos = self.workspace.bind(self.current_pose.p)
-                    self.current_pose.p = Vector(*bound_pos)
-                    rospy.loginfo(rospy.get_name() + ': ' + str(np.array(list(self.current_pose.p)).round(3)))
-                    self.target_marker.pose = toMsg(self.current_pose)
-                
-                    self.marker_pub.publish(self.target_marker )
                     stamped_target = PoseStamped()
                     stamped_target.header.frame_id = 'world'
-                    stamped_target.pose = toMsg(self.current_pose)
-                    self.posegoal_pub.publish(stamped_target)
-            
+                    if self.combine_with_marker:
+                        # target = Frame()
+                        self.target.p = (wrist_f.p - self.first_tf.p)
+                        self.target.M = Rotation.Quaternion(*[-0.707, -0.000, 0.707, -0.000]) * wrist_f.M
+                        stamped_target.pose = toMsg(self.target)
+                        self.send_target(absolute=False, query=stamped_target)
+                    else:
+                        
+                        self.target.p = wrist_f.p - self.first_tf.p + self.current_pose.p
+                        self.target.M = wrist_f.M
+                        
+                        # filtered_pos, filtered_quat = self.filter_pose(
+                        #     list(self.target.p), list(self.target.M.GetQuaternion()))
+                        
+                        # self.current_pose.p + Vector(*filtered_pos.round(4)) * .5
+                        # self.current_pose.M = self.target.M
+                        
+                        # bound_pos = self.workspace.bind(
+                        #     self.current_pose.p + Vector(*filtered_pos.round(4)) * .5)
+                        # self.target.p = Vector(*bound_pos)
+                        # self.current_pose.p = Vector(*bound_pos)
+                        rospy.loginfo(rospy.get_name() + ': ' + str(np.array(list(self.current_pose.p)).round(3)))
+                        self.target_marker.pose = toMsg(self.target)
+                    
+                        self.marker_pub.publish(self.target_marker)
+                        stamped_target.pose = toMsg(self.target)
+                        # self.posegoal_pub.publish(stamped_target)
+                        self.send_target(absolute=True, query=stamped_target)
+            else:
+                self.first_tf = wrist_f
             self.previous_tf = wrist_f
+        else:
+            self.first_tf = self.previous_tf = None

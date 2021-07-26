@@ -9,9 +9,9 @@ project(teleoperation_ur5_allegro_leap)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
 rospy
-std_msgs
 relaxed_ik
 std_msgs
+geometry_msgs
 message_generation
 )
 
@@ -58,6 +58,7 @@ add_message_files(
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
+  Arm_Cartesian_Target.srv
   Toggle_Tracking.srv
   Toggle_Control.srv
   Toggle_Calibration.srv
@@ -77,6 +78,7 @@ add_service_files(
 generate_messages(
   DEPENDENCIES
   std_msgs  # Or other packages containing msgs
+  geometry_msgs
 )
 
 ################################################

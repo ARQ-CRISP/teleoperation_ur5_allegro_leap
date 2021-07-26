@@ -1,0 +1,4 @@
+bool absolute
+geometry_msgs/PoseStamped query
+---
+bool result
