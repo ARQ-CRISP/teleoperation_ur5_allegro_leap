@@ -50,11 +50,11 @@ class WS_Bounds():
         # return WS_Bounds.from_center_scale(center, new_scale)
         self.set_center_scale(center, new_scale)
             
-    def in_bounds(self, x):
+    def in_bounds(self, x, eps=1e-3):
         pt = np.array([list(x)]) if isinstance(x, kdl.Vector) else x
         # kd_pt = kdl.Vector(*x)
         return np.all(
-            (np.asarray(pt) <= self.end_pt) & (np.asarray(pt) >= self.start_pt),
+            (np.asarray(pt) <= self.end_pt + eps) & (np.asarray(pt) >= self.start_pt - eps),
             axis=1, keepdims=True)
     
     def get_vertices(self):
