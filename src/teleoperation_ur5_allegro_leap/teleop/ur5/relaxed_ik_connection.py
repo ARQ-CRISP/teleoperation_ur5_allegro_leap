@@ -38,13 +38,14 @@ class Relaxed_UR5_Connection():
     request_topic = ur5_teleop_prefix + 'ur5_pose_targets'
     goal_marker_topic = ur5_teleop_prefix + 'target_marker_debug'
     
-    max_angle = np.pi
+    max_angle = np.pi/8.
     min_angle = 1e-4
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
                 movegroup='ur5_arm', sim=True, debug_mode=False):
         
         self.sim = sim
+        self.safety_counter = 0
         
         self.rotation_bias = Frame(Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0))
         
@@ -52,15 +53,13 @@ class Relaxed_UR5_Connection():
         self.posegoal.ee_poses.append(Pose())
         self.set_absolute_mode_flag(self.get_absolute_mode_flag()) # sets to default value
         
-        # self.ur5_target_subscriber = None
         
         self.joint_manager = JointMovementManager.generate_manager(init_state, sim=sim)
-
-        # self.goal_pub = rospy.Publisher(self.relaxed_ik_pose_goals_topic, EEPoseGoals, queue_size=10)
+        
         self.solution_sub = rospy.Subscriber(
             self.relaxed_ik_solutions_topic, JointAngles, self.OnSolutionReceived, queue_size=1)
 
-        # self.debug_mode = debug_mode
+
         roscpp_initialize(sys.argv)
         self.moveit_interface = movegroup if isinstance(movegroup, MoveGroupCommander) else MoveGroupCommander(movegroup)
         self.moveit_interface.go(
@@ -75,6 +74,8 @@ class Relaxed_UR5_Connection():
         #Input manager Initialised here
         self.input_manager = Combined_Arm_Teleop_Input(pm.fromMsg(pose))
         # self.init_pose = pm.fromMsg(pose)
+        
+        rospy.Timer(rospy.Duration(1/15.), lambda msg: self.check_ee_safety())
 
 
     def set_debug_properties(self):
@@ -112,6 +113,21 @@ class Relaxed_UR5_Connection():
         elif np.any(np.absolute(diff) >= self.max_angle):
             rospy.logwarn('Arm seems to move too fast! Difference of sequencial joint angles too damn high!')
             
+    def check_ee_safety(self):
+        
+        pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose
+        frame = pm.fromMsg(pose)
+        
+        if not self.input_manager.workspace.in_bounds(frame.p, 5e-2):
+            self.safety_counter += 1
+            rospy.logwarn('EE Out of Bounds! Return to Workspace!')
+        else:
+            self.safety_counter = 0
+            
+        if self.safety_counter > 20:
+            rospy.logwarn('EE Out of Bounds! Emergency Stop!')
+            self.joint_manager.emergency_stop()
+        
 
     def on_kill(self):
         if self.joint_manager is not None:
