@@ -156,7 +156,7 @@ class Leap_Teleop_UR5():
                     stamped_target = PoseStamped()
                     stamped_target.header.frame_id = 'world'
                     if self.combine_with_marker:
-                        # target = Frame()
+                        
                         self.target.p = (wrist_f.p - self.first_tf.p)
                         self.target.M = Rotation.Quaternion(*[-0.707, -0.000, 0.707, -0.000]) * wrist_f.M
                         stamped_target.pose = toMsg(self.target)

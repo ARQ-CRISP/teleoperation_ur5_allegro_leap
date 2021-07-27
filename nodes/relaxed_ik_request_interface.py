@@ -6,8 +6,8 @@ import yaml
 import rospy
 from rospkg import RosPack
 from teleoperation_ur5_allegro_leap.teleop.ur5.relaxed_ik_connection import Relaxed_UR5_Connection 
-from teleoperation_ur5_allegro_leap.teleop.ur5 import WS_Bounds
-from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
+# from teleoperation_ur5_allegro_leap.teleop.ur5 import WS_Bounds
+# from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
     
 
