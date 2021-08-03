@@ -5,51 +5,32 @@
     <arg name="leap_topic"   default="/leap_motion/leap_filtered"/>
     <arg name="left_handed"   default="False"/>
     <arg name="render"   default="true"/>
+    <arg name="sim" default="true"/>
     <arg name="NUM" default="0"/>
     <arg name="world_name"   default="calibration-world.xml"/>
     
     
-    <include file="$(find allegro_mujoco)/launch/mujoco_ros_communication.launch">
-                    <arg name="rviz"   value="false"/>
-                    <arg name="render" value="$(arg render)"/>
-                    <arg name="load_robot" value="ur5_allegro"/>
-                    <arg name="world_model_file" type="str" value="$(find allegro_mujoco)/config/worlds/$(arg world_name)" />
+
+    <include if="$(arg sim)" file="$(find teleoperation_ur5_allegro_leap)/launch/allegro_teleop_sim.launch">
+        <arg name="render"        value="$(arg render)"/>
+        <arg name="gui"           value="false"/>
+        <arg name="sim"           value="True"/>
+    </include>
+    
+    <include unless="$(arg sim)" file="$(find teleoperation_ur5_allegro_leap)/launch/allegro_teleop_sim.launch">
+        <arg name="gui"        value="false"/>
+    </include>
+    
+    <include file="$(find teleoperation_ur5_allegro_leap)/launch/ur5_relaxed_setup.launch">
+        <arg name="sim"   default="true"/>
     </include>
 
-    <include file="$(find teleoperation_ur5_allegro_leap)/launch/ur5_teleop.launch">
-        <arg name="viz"   value="false"/>
-        <arg name="load_moveit"   value="false"/>
-        <arg name="start_leap"    value="false"/>
-        <arg name="leap_topic"    value="$(arg leap_topic)"/>
-        <arg name="left_handed"   value="$(arg left_handed)"/>
-    </include>
+    <node pkg="teleoperation_ur5_allegro_leap" type="full_teleop_gui.py" name="teleop_gui" output="screen">
+        <param name="arm_teleop" type="bool" value="true"/>
+        <param name="hand_teleop" type="bool" value="true" />
+    </node>
 
-    <include file="$(find teleoperation_ur5_allegro_leap)/launch/allegro_teleop_sim.launch">
-        <arg name="xacro_path"        value="$(find ur5_allegro_moveit)/models/ur5_allegro.xacro" />
-        <arg name="urdf_args"         value=""/>
-        <arg name="load_xacro"        value="true"/>
-        <arg name="viz"               value="false"/>
-        <arg name="start_leap"        value="false"/>
-        <arg name="sim"               value="False"/>
-    </include>
-
-    <group>
-        <include file="$(find teleoperation_ur5_allegro_leap)/launch/leap_start.launch">
-            <arg name="leap_camera_mode"   value="False"/>
-            <arg name="leap_hand_root"   value="wrist"/>
-            <arg name="leap_tf_hand_parent" value="leap_hands" />
-            <arg name="leap_finger_parent" value="hand_root" />
-
-            <arg name="leap_hand_tf" default="0 0 0 0.5000000532124816 0.5000000532124816 0.5 0.5000000532124816 world leap_hands"/>
-            <arg name="leap_right_fingers_tf" value="0 0 0 0 0 0 1 hand_root right_leap_fingers"/>
-            <arg name="leap_left_fingers_tf" value="0 0 0 0.5 0.5 0.5 0.5 world left_leap_fingers"/>
-        </include>
-    </group>
-
-    <group if="$(arg viz)">
-        <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find teleoperation_ur5_allegro_leap)/rviz/teleop_viz.rviz" />
-    </group>
-
+    
 
 
 </launch>

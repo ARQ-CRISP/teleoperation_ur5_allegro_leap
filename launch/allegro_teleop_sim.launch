@@ -10,6 +10,7 @@
     <arg name="debug_mode"   default="False"/>
     <arg name="sim"   default="True"/>
     <arg name="render"   default="True"/>
+    <arg name="gui"   default="True"/>
     <arg name="world_name"   default="calibration-world.xml"/>
     
     <group if="$(arg sim)"> 
@@ -69,7 +70,7 @@
     </node>
 
     <!-- <node pkg="teleoperation_ur5_allegro_leap" type="teleop_gui_node.py" name="teleop_gui" output="screen"> -->
-    <node pkg="teleoperation_ur5_allegro_leap" type="full_teleop_gui.py" name="teleop_gui" output="screen">
+    <node if="$(arg gui)" pkg="teleoperation_ur5_allegro_leap" type="full_teleop_gui.py" name="teleop_gui" output="screen">
         <param name="arm_teleop" type="bool" value="false"/>
         <param name="hand_teleop" type="bool" value="true" />
     </node>
