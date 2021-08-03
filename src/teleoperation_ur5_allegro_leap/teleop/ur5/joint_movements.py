@@ -36,6 +36,7 @@ class JointMovementManager(object):
         return cls(init_state)
     
     def  __init__(self, init_state=[0., 0., 0., 0., 0., 0.]):
+        self.stopped = False
         self.N = 5
         self.last_j_state_target = init_state
         self.last_j_vel = [0.0] * len(init_state)
@@ -52,6 +53,10 @@ class JointMovementManager(object):
 
     @abstractmethod
     def terminate(self):
+        raise NotImplementedError
+    
+    @abstractmethod
+    def emergency_stop(self):
         raise NotImplementedError
 
     def generate_movement(self, j_target): 
@@ -99,7 +104,7 @@ class JointMovementManager(object):
         
         vel_steps = vel_increments * max_vel 
         
-        vel_steps[:, -1] *= 1/3.
+        # vel_steps[:, -1] *= 1/3.
         return (t_steps[-2:-1], pos_steps[-2:-1], vel_steps[-2:-1])
         
 
@@ -122,10 +127,17 @@ class SimJointMovementManager(JointMovementManager):
         # self.jstate_buffer.append(deepcopy(self.jangles)) this is in the go_to
         
     def go_to(self, target):
-        target.header.stamp = rospy.Time.now()
-                # self.jangles.header.seq = k
-        self.joint_target_pub.publish(target)
-        # rospy.sleep(self.time_to_target)
+        if not self.stopped:
+            target.header.stamp = rospy.Time.now()
+                    # self.jangles.header.seq = k
+            self.joint_target_pub.publish(target)
+            # rospy.sleep(self.time_to_target)
+        
+    def emergency_stop(self):
+        self.stopped = True
+        
+    def restart(self):
+        self.stopped = False
 
     def terminate(self):
         self.joint_listener.unregister()
@@ -136,15 +148,17 @@ class RealJointMovementManager(JointMovementManager):
     joint_listener_topic = '/joint_states'
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.]):
+        self.stopped = False
         super(RealJointMovementManager, self).__init__(init_state)
         self.joint_target_pub = actionlib.SimpleActionClient(self.real_robot_action_server, FollowJointTrajectoryAction)
         rospy.loginfo("[" + rospy.get_name() + "]" + " Waiting for control server...")
-        self.joint_listener = rospy.Subscriber(self.joint_listener_topic, JointState, self.listen_j_state, queue_size=1)
+        self.joint_listener = rospy.Subscriber(
+            self.joint_listener_topic, JointState, self.listen_j_state, queue_size=1)
         self.joint_target_pub.wait_for_server()
         rospy.loginfo("[" + rospy.get_name() + "]" + " Connected to Robot!")
     
     def go_to(self, target):
-        if len(target) > 0:
+        if len(target) > 0 and not self.stopped:
             goal = FollowJointTrajectoryGoal(
                 trajectory=JointTrajectory(joint_names=self.jnames))
             goal.trajectory.points = target
@@ -156,13 +170,26 @@ class RealJointMovementManager(JointMovementManager):
     def terminate(self):
         self.joint_target_pub.cancel_all_goals()
         # self.joint_target_pub.stop_tracking_goal()
-        self.joint_listener.unregister()
+        if self.joint_listener is not None:
+            self.joint_listener.unregister()
+            self.joint_listener = None
+        
+    def emergency_stop(self):
+        self.stopped = True
+        self.joint_target_pub.cancel_all_goals()
+        if self.joint_listener is not None:
+            self.joint_listener.unregister()
+            self.joint_listener = None
+        
+    def restart(self):
+        self.stopped = False
+        self.joint_listener = rospy.Subscriber(
+            self.joint_listener_topic, JointState, self.listen_j_state, queue_size=1)
 
     def define_trajectory(self, js_postion, j_velocity, duration):
         old_jangles = self.last_j_state_target
         dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles)))
         
-    
         if np.any(dist > 1e-4):
             
             # N = 3

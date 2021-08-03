@@ -5,23 +5,41 @@ import os
 import signal
 
 from std_msgs.msg import String
-from Tkinter import *
+# from Tkinter import *
+import Tkinter as tk
 # from mmmros.msg import Movement, SensorData
 
-
-class EventCatcher(Tk, object):
+    # def __init__(self, master=None):
+    #     tk.Frame.__init__(self, master, width=1080, height=720)
+    #     self.master = master
+    #     self.pack(fill=tk.BOTH)
+    #     self.create_widgets()
+    #     self.rpy = [0., 0., 0.]
+    #     self.xyz = [0.] * 3
+    
+class EventCatcher(tk.Frame, object):
     
     """
     EventCatcher Class
     This class manages the window and the key binders for the calibration and teleoperation hotkeys
     """
 
-    def __init__(self, screenName=None, baseName=None, className='Tk', useTk=1, sync=0, use=None, size=(300, 300)):
-        super(EventCatcher, self).__init__(screenName=screenName, baseName=baseName, className=className, useTk=useTk, sync=sync, use=use)
-
+    @classmethod
+    def as_standalone(cls, height=720, width=450, title="Event Catcher"):
+        root = tk.Tk()
+        root.title(title)
+        root.geometry("{}x{}".format(height, width))
+        win = cls(master=root, size=(height, width))
+        # win.pack()
+        return win
+    
+    def __init__(self, master, size=(300, 300)):
+        # super(EventCatcher, self).__init__(screenName=screenName, baseName=baseName, className=className, useTk=useTk, sync=sync, use=use)
+        tk.Frame.__init__(self, master, width=size[0], height=size[1])
+        self.__master = master
 
         self.menus = dict() 
-        self.menus['base'] = Menu()
+        self.menus['base'] = tk.Menu()
         self.define_menu('File')
         self.menus['File'].add_separator()
         self.menus['File'].add_command(label='Close', command=self.quit)
@@ -30,51 +48,52 @@ class EventCatcher(Tk, object):
         self.action_attributes = dict()
         self.entries = dict()
         self.frames = dict()
-        self.frames['status_frame'] = Frame(self)
+        self.frames['status_frame'] = tk.Frame(self)
         # self.status_frame = Frame(self)
-        self.frames['status_frame'].pack(fill=BOTH, padx=5, pady=5, side=TOP)
+        self.frames['status_frame'].pack(fill=tk.BOTH, padx=5, pady=5, side=tk.TOP)
 
-        self.frames['entries'] = Frame(self)
-        self.frames['entries'].pack(fill=BOTH, side=TOP, padx=5, pady=5)
+        self.frames['entries'] = tk.Frame(self)
+        self.frames['entries'].pack(fill=tk.BOTH, side=tk.TOP, padx=5, pady=5)
         
-        self.frames['description'] = Frame(self)#, background='black')
-        self.frames['description'].pack(fill=BOTH, padx=5, pady=5, side=TOP)
+        self.frames['description'] = tk.Frame(self)#, background='black')
+        self.frames['description'].pack(fill=tk.BOTH, padx=5, pady=5, side=tk.TOP)
 
-        self.status_string = StringVar(self.frames['status_frame'], '')
-        self.title('Event Catcher')
-        self.status_label = Label(self.frames['status_frame'], textvariable=self.status_string, anchor='center', 
+        self.status_string = tk.StringVar(self.frames['status_frame'], '')
+        
+        self.status_label = tk.Label(self.frames['status_frame'], textvariable=self.status_string, anchor='center', 
                         font=("Helvetica", 15),
-                        borderwidth=1, relief=GROOVE, #relief=RIDGE, 
-                        width=15, height=2).pack(fill=X, expand=True, padx=5, pady=5)#.grid(row=10, column=30)
+                        borderwidth=1, relief=tk.GROOVE, #relief=RIDGE, 
+                        width=15, height=2).pack(fill=tk.X, expand=True, padx=5, pady=5)#.grid(row=10, column=30)
 
         self.hotkey_text_labels = []
         self.reset_pub = rospy.Publisher('/reset_sim', String, queue_size=1)
-        self.protocol("WM_DELETE_WINDOW", self.onCloseWindow)
-        self.geometry( str(size[0]) + "x" + str(size[1]))
-        self.bind("<KeyPress>", self.keydown)
-        self.bind("<KeyRelease>", self.keyup)
+        self.__master.protocol("WM_DELETE_WINDOW", self.onCloseWindow)
+        self.__master.geometry( str(size[0]) + "x" + str(size[1]))
+        self.__master.bind("<KeyPress>", self.keydown)
+        self.__master.bind("<KeyRelease>", self.keyup)
 
-        signal.signal(signal.SIGINT, self.close_app)
-        self.config(menu=self.menus['base'])
+        signal.signal(signal.SIGINT, lambda x,y: self.close_app())
+        self.__master.config(menu=self.menus['base'])
+        self.pack()
 
     def define_menu(self, menu_name):
-        self.menus[menu_name] = Menu(self.menus['base'], tearoff=0)
+        self.menus[menu_name] = tk.Menu(self.menus['base'], tearoff=0)
         self.menus['base'].add_cascade(label=menu_name, menu=self.menus[menu_name])
 
     def create_entry(self, name, label_text, default_value=''):
-        frame = Frame(self.frames['entries'])
-        label = Label(frame, text=label_text, width=25, anchor='w')
-        entry = Entry(frame)
-        entry.insert(END, default_value)
+        frame = tk.Frame(self.frames['entries'])
+        label = tk.Label(frame, text=label_text, width=25, anchor='w')
+        entry = tk.Entry(frame)
+        entry.insert(tk.END, default_value)
         # entry.bind('Enter', lambda event: self.frames['description'].focus_set())
         self.entries[name] = entry
-        frame.pack(side=TOP, fill=X, padx=5, pady=5)
-        label.pack(side=LEFT)
-        entry.pack(side=RIGHT, expand=YES, fill=X)
+        frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+        label.pack(side=tk.LEFT)
+        entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
-    def add_frame(self, name, father_frame='description', fill=BOTH, side=TOP, padx=5, pady=10):
+    def add_frame(self, name, father_frame='description', fill=tk.BOTH, side=tk.TOP, padx=5, pady=10):
         if name not in self.frames:
-            self.frames[name] = Frame(self.frames[father_frame])
+            self.frames[name] = tk.Frame(self.frames[father_frame])
             self.frames[name].pack(fill=fill, side=side, padx=padx, pady=pady)
 
     def get_entry(self, entry_name):
@@ -89,36 +108,36 @@ class EventCatcher(Tk, object):
         self.status_string.set(status)
 
     def set_title(self, title):
-        self.title(title)
+        self.__master.title(title)
 
     def close_app(self):
-        self.quit()
-        self.update()
+        self.__master.quit()
+        self.__master.update()
 
     def bind_action(self, button, function, description=None, frame_name='description'):
         self.actions[button] = function
         self.action_attributes[button] = (self.frames[frame_name], description)
 
     def onCloseWindow(self):
-        self.destroy()
+        self.__master.destroy()
     
     def show_keybinders(self):
         for i, action in enumerate(self.actions):
             
-            Label(self.action_attributes[action][0], textvariable=StringVar(self, action), 
+            tk.Label(self.action_attributes[action][0], textvariable=tk.StringVar(self, action), 
                 anchor='w', font=("Helvetica", 10), 
-                borderwidth=3, relief=FLAT,
-            ).grid(padx=5, row=i, column=0, sticky=N+W+E, columnspan=2)#.pack(fill=X, expand=True, padx=5, pady=5, side=LEFT)
+                borderwidth=3, relief=tk.FLAT,
+            ).grid(padx=5, row=i, column=0, sticky=tk.N+tk.W+tk.E, columnspan=2)#.pack(fill=X, expand=True, padx=5, pady=5, side=LEFT)
 
-            Label(self.action_attributes[action][0], textvariable=StringVar(self, '->'), 
+            tk.Label(self.action_attributes[action][0], textvariable=tk.StringVar(self, '->'), 
                 anchor='w', font=("Helvetica", 10), 
-                borderwidth=3, relief=FLAT,
-            ).grid(padx=2, row=i, column=3, sticky=N+W+E, columnspan=1)
+                borderwidth=3, relief=tk.FLAT,
+            ).grid(padx=2, row=i, column=3, sticky=tk.N+tk.W+tk.E, columnspan=1)
 
-            Label(self.action_attributes[action][0], textvariable=StringVar(self, self.action_attributes[action][1]), 
+            tk.Label(self.action_attributes[action][0], textvariable=tk.StringVar(self, self.action_attributes[action][1]), 
                 anchor='w', font=("Helvetica", 10), 
-                borderwidth=3, relief=FLAT,
-            ).grid(padx=3, row=i, column=4, sticky=N+W+E, columnspan=2)#.pack(fill=X, expand=True, padx=5, pady=5, side=LEFT)
+                borderwidth=3, relief=tk.FLAT,
+            ).grid(padx=3, row=i, column=4, sticky=tk.N+tk.W+tk.E, columnspan=2)#.pack(fill=X, expand=True, padx=5, pady=5, side=LEFT)
 
     def keydown(self, event):
         if event.keysym in self.actions:
@@ -141,8 +160,8 @@ class EventCatcher(Tk, object):
 if __name__ == "__main__":
     
     rospy.init_node('event_tester')
-    ec = EventCatcher()
-    ec.title("Teleop Controller")
+    ec = EventCatcher.as_standalone()
+    ec.set_title("Teleop Controller")
     ec.status_string.set('TerapiaTaioco')
     ec.bind_action('a', (lambda : print('you just pressed a'), None), 'abecedario')
     ec.bind_action('b', (lambda : print('you just pressed b'), None), 'bobba')

@@ -7,12 +7,13 @@ last update: 2/06/21
 '''
 from __future__ import print_function, division, absolute_import
 
-import tf2_ros
-import rospy
 import numpy as np
 from collections import deque
-from PyKDL import Frame, Rotation, Vector
+from enum import Enum
 
+import rospy
+import tf2_ros
+from PyKDL import Frame, Rotation, Vector
 from geometry_msgs.msg import Pose, PoseStamped
 from visualization_msgs.msg import Marker
 from leap_motion.msg import Human
@@ -21,13 +22,22 @@ from tf_conversions import fromTf, toMsg
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
 from teleoperation_ur5_allegro_leap.srv import Toggle_Tracking, Toggle_TrackingResponse
-from teleoperation_ur5_allegro_leap.srv import Arm_Cartesian_Target, Arm_Cartesian_TargetResponse
 from teleoperation_ur5_allegro_leap.srv import Toggle_ArmTeleopMode, Toggle_ArmTeleopModeResponse
+from teleoperation_ur5_allegro_leap.srv import Arm_Cartesian_Target, Arm_Cartesian_TargetResponse
 
 def transform_to_vec(T):
     t = T.transform.translation
     r = T.transform.rotation
     return [[t.x, t.y, t.z], [r.x, r.y, r.z, r.w]]
+
+class Teleop_Mode(Enum):
+    base_pos = 0
+    marker_pos = 1
+    
+    def __str__(self):
+        strings = ['Velocity - Base Pose', 'Velocity - Marker Pose']
+        return strings[self.value]
+
 
 class Leap_Teleop_UR5():
     
@@ -36,15 +46,18 @@ class Leap_Teleop_UR5():
     pose_goal_topic = ur5_teleop_prefix + 'arm_pose_targets'
     toggle_tracking_srv = ur5_teleop_prefix + 'toggle_tracking'
     toggle_teleop_mode_srv = ur5_teleop_prefix + 'toggle_teleop_mode'
+    move_marker_srv = ur5_teleop_prefix + 'toggle_teleop_mode'
     workspace_marker_topic = ur5_teleop_prefix + 'workspace'
     
     def __init__(self, workspace, right_hand=True):
         
-        self.combine_with_marker = False
+        self.combine_with_marker = True #TOREMOVE
+        self.teleop_mode = Teleop_Mode.marker_pos
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(10))
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         
         self.previous_tf = self.first_tf = None
+        self.last_sent_target = None
         self.workspace = workspace
         self.create_ws_viz_properties()
         
@@ -74,9 +87,7 @@ class Leap_Teleop_UR5():
                                                     self.toggle_tracking() if msg.update else self.is_tracking))
         
         self.__teleop_mode_toggler = rospy.Service(self.toggle_teleop_mode_srv, Toggle_ArmTeleopMode,
-                                                lambda msg: Toggle_ArmTeleopModeResponse(
-                                                    self.toggle_teleop_mode() if msg.update \
-                                                        else self.combine_with_marker))
+                                                lambda msg: Toggle_ArmTeleopModeResponse(mode=self.toggle_teleop_mode(msg.update)))
     
     def create_ws_viz_properties(self):
         self.marker_workspace_pub = rospy.Publisher(self.workspace_marker_topic, Marker, queue_size=1)
@@ -97,7 +108,7 @@ class Leap_Teleop_UR5():
         self.marker_workspace_pub.publish(self.workspace_marker)
         
     def toggle_tracking(self):
-        if self.__leap_listener is None:
+        if not self.is_tracking:
             rospy.loginfo('Arm Teleop: Resuming Tracking!')
             self.__leap_listener = rospy.Subscriber(
                 self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
@@ -107,19 +118,24 @@ class Leap_Teleop_UR5():
             self.__leap_listener = None
         return self.is_tracking    
     
-    def toggle_teleop_mode(self):
-        self.combine_with_marker = not self.combine_with_marker
+    def toggle_teleop_mode(self, update=True):
         
-        if not self.combine_with_marker:
+        if update:
+            self.teleop_mode = Teleop_Mode.base_pos \
+                if self.teleop_mode == Teleop_Mode.marker_pos \
+                else Teleop_Mode.marker_pos
+        
+        if self.teleop_mode == Teleop_Mode.base_pos:
             rospy.loginfo('Arm Teleop Mode: Absolute!')
         else:
             rospy.loginfo('Arm Teleop Mode: Relative to Marker!')
             
-        return self.combine_with_marker    
+        return str(self.teleop_mode)
+            
             
     @property         
     def is_tracking(self):
-        return self.__leap_listener is None              
+        return self.__leap_listener is not None              
 
     def filter_pose(self, pos, quat):
         self.position_buffer.append(np.asarray(pos))
@@ -155,7 +171,7 @@ class Leap_Teleop_UR5():
                 if (rot_dist > 1e-3) or (pos_dist > 1e-5):
                     stamped_target = PoseStamped()
                     stamped_target.header.frame_id = 'world'
-                    if self.combine_with_marker:
+                    if self.teleop_mode == Teleop_Mode.marker_pos:
                         
                         self.target.p = (wrist_f.p - self.first_tf.p)
                         self.target.M = Rotation.Quaternion(*[-0.707, -0.000, 0.707, -0.000]) * wrist_f.M
@@ -166,25 +182,18 @@ class Leap_Teleop_UR5():
                         self.target.p = wrist_f.p - self.first_tf.p + self.current_pose.p
                         self.target.M = wrist_f.M
                         
-                        # filtered_pos, filtered_quat = self.filter_pose(
-                        #     list(self.target.p), list(self.target.M.GetQuaternion()))
-                        
-                        # self.current_pose.p + Vector(*filtered_pos.round(4)) * .5
-                        # self.current_pose.M = self.target.M
-                        
-                        # bound_pos = self.workspace.bind(
-                        #     self.current_pose.p + Vector(*filtered_pos.round(4)) * .5)
-                        # self.target.p = Vector(*bound_pos)
-                        # self.current_pose.p = Vector(*bound_pos)
                         rospy.loginfo(rospy.get_name() + ': ' + str(np.array(list(self.current_pose.p)).round(3)))
                         self.target_marker.pose = toMsg(self.target)
                     
                         self.marker_pub.publish(self.target_marker)
                         stamped_target.pose = toMsg(self.target)
                         # self.posegoal_pub.publish(stamped_target)
+                        self.last_sent_target = stamped_target
                         self.send_target(absolute=True, query=stamped_target)
             else:
                 self.first_tf = wrist_f
             self.previous_tf = wrist_f
         else:
             self.first_tf = self.previous_tf = None
+            if self.last_sent_target is not None and self.is_tracking and self.teleop_mode == Teleop_Mode.marker_pos:
+                self.send_target(absolute=True, query=self.last_sent_target)

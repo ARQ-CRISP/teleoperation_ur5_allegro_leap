@@ -106,12 +106,13 @@ class Arm_Teleop_Input(object):
     def setup_service(self):
         self._set_target_service = rospy.Service(self.request_topic, Arm_Cartesian_Target,
                                                 lambda msg: Arm_Cartesian_TargetResponse( 
-                                                    self.OnPoseRequest(msg.query) ))
+                                                    self.OnPoseRequest(msg.query)))
     
     def OnPoseRequest(self, pose_stamped):
         request = pm.fromMsg(pose_stamped.pose)
         
         # if self.get_absolute_mode_flag():
+        request.p = Vector(*self.workspace.bind(request.p))
         request = self.pose_to_relative_frame(request)
         
         corrected = self.correct_bias(request)
@@ -178,13 +179,14 @@ class Arm_Teleop_Input(object):
     
 class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
     
-    def __init__(self, init_pose=None, rotation_bias=None):
+    marker_request_topic = ur5_teleop_prefix + 'move_marker_pose'
+    def __init__(self, init_pose=None, rotation_bias=None, workspace=None):
         
         # self.tf_buffer = tf2_ros.Buffer(1.)
         # self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         
-        self.world_pose = None
-        super(Combined_Arm_Teleop_Input, self).__init__(init_pose, rotation_bias)
+        # self.world_pose = None
+        super(Combined_Arm_Teleop_Input, self).__init__(init_pose, rotation_bias, workspace)
         
         self.interactive_m = InteractiveControl(
             list(init_pose.p), list(init_pose.M.GetQuaternion()), 'Arm_Base_Pose')
@@ -197,6 +199,10 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
                                                     super(Combined_Arm_Teleop_Input, self).OnPoseRequest(msg.query) \
                                                         if msg.absolute else self.OnPoseRequest(msg.query)))
         
+        self._set_marker_pose_service = rospy.Service(self.marker_request_topic, Arm_Cartesian_Target,
+                                                      lambda msg: Arm_Cartesian_TargetResponse(
+                                                          self.set_interactive_pose(msg.query)))
+        
     def to_markers_frame(self, pose):
         self.interactive_m.frame
         
@@ -206,12 +212,12 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
         target = Frame() 
         target.M = self.interactive_m.frame.M * request.M
         target.p = self.interactive_m.frame.p + request.p
+        target.p = Vector(*self.workspace.bind(target.p))
         # self.interactive_m.frame * request
         # if self.get_absolute_mode_flag():
         request = self.pose_to_relative_frame(target)
         corrected = self.correct_bias(request)
         if self.debug_mode:
-            
             self.send_marker(
                 pm.toMsg(corrected), 'hand_root')
             
@@ -220,10 +226,13 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
             corrected
             )
         
-    def __get_world_pose(self):
-        self.world_pose = pm.fromTf(self.tf_buffer.lookup_transform('world', 'world', rospy.Time.now()))
-        
-
+    def set_interactive_pose(self, pose_stamped):
+        pose = pm.fromMsg(pose_stamped.pose)
+        self.interactive_m.frame.p += pose.p
+        # pose.M = self.interactive_m.frame.M
+        self.interactive_m.server.setPose("ur5_target_bias", pm.toMsg(self.interactive_m.frame))
+        self.interactive_m.server.applyChanges()
+        # print(self.interactive_m.int_mark.pose)
 
 if __name__ == '__main__':
     rospy.init_node('UR5_ee_control_marker')

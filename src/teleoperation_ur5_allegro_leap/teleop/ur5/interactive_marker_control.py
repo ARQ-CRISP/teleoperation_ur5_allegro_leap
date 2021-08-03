@@ -74,5 +74,10 @@ class InteractiveControl(object):
     def processFeedback(self, feedback):
         frame = pm.fromMsg(feedback.pose)
         self.frame = frame
-        print(feedback.marker_name + " is now at ", np.asarray(list(frame.p)).round(3), np.asarray(list(frame.M.GetQuaternion())).round(3))
+        self.server.setPose(feedback.marker_name, feedback.pose)
+        self.server.applyChanges()
+        print(
+            feedback.marker_name + " is now at ",
+            np.asarray(list(frame.p)).round(3),
+            np.asarray(list(frame.M.GetQuaternion())).round(3))
        

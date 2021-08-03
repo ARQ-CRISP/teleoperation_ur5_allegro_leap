@@ -66,14 +66,12 @@
         <param name="left_hand" type="bool" value="false"/>
         <param name="consumption_rate" type="double" value="60" />
         <param name="leap_topic" type="str" value="$(arg leap_topic)" />
-        
     </node>
 
-    <node pkg="teleoperation_ur5_allegro_leap" type="teleop_gui_node.py" name="teleop_gui" output="screen">
-        <param name="left_hand" type="bool" value="false"/>
-        <param name="consumption_rate" type="double" value="60" />
-        <param name="leap_topic" type="str" value="$(arg leap_topic)" />
-        
+    <!-- <node pkg="teleoperation_ur5_allegro_leap" type="teleop_gui_node.py" name="teleop_gui" output="screen"> -->
+    <node pkg="teleoperation_ur5_allegro_leap" type="full_teleop_gui.py" name="teleop_gui" output="screen">
+        <param name="arm_teleop" type="bool" value="false"/>
+        <param name="hand_teleop" type="bool" value="true" />
     </node>
 
     <group if="$(arg viz)">

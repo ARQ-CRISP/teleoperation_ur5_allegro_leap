@@ -61,7 +61,8 @@ class Relaxed_UR5_Connection():
 
 
         roscpp_initialize(sys.argv)
-        self.moveit_interface = movegroup if isinstance(movegroup, MoveGroupCommander) else MoveGroupCommander(movegroup)
+        self.moveit_interface = movegroup if isinstance(movegroup, MoveGroupCommander) \
+            else MoveGroupCommander(movegroup)
         self.moveit_interface.go(
             joints=JointState(name=self.jnames, position=init_state),
             wait=True) #go to the initial position requested to relaxed_ik

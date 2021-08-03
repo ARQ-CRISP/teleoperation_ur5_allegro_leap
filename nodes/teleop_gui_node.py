@@ -25,8 +25,8 @@ if __name__ == "__main__":
     rospy.init_node('teleop_gui')
     tf_buffer = tf2_ros.Buffer(rospy.Duration(50))
     tf_listener = tf2_ros.TransformListener(tf_buffer)
-    lefthand_mode = rospy.get_param('~left_hand', False)
-    leap_topic = rospy.get_param('~leap_topic', '/leap_motion/leap_filtered')
+    # lefthand_mode = rospy.get_param('~left_hand', False)
+    # leap_topic = rospy.get_param('~leap_topic', '/leap_motion/leap_filtered')
     package_path = RosPack().get_path('teleoperation_ur5_allegro_leap')
 
     calibration_file = package_path + '/config/calibration_allegro_states.pkl'
@@ -36,7 +36,7 @@ if __name__ == "__main__":
             finger)) for key, finger in calibration_poses.items()])
 
 
-    ec = EventCatcher(size=(300, 600))
+    ec = EventCatcher.as_standalone(300, 600)
     rospy.on_shutdown(ec.close_app)
     ec.set_status('Execution_Mode')
     ec.set_title('Teleop Controller')
