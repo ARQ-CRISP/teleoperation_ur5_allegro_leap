@@ -17,7 +17,7 @@
         <arg name="sim"           value="True"/>
     </include>
     
-    <include unless="$(arg sim)" file="$(find teleoperation_ur5_allegro_leap)/launch/allegro_teleop_sim.launch">
+    <include unless="$(arg sim)" file="$(find teleoperation_ur5_allegro_leap)/launch/allegro_teleop_real.launch">
         <arg name="gui"        value="false"/>
     </include>
     
