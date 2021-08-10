@@ -6,6 +6,13 @@
     <include file="$(find relaxed_ik)/launch/load_info_file.launch">
             <arg name="info_file_name" value="ur5_allegro_info.yaml"/>            
     </include>
+
+    <include file="$(find ur5_allegro_moveit)/launch/move_group.launch">
+            <arg name="allow_trajectory_execution" value="true"/>
+            <arg name="fake_execution" value="false"/>
+            <arg name="info" value="true"/>
+            <arg name="debug" value="False"/>
+    </include>
     
     <!-- <include file="$(find relaxed_ik)/launch/relaxed_ik_python.launch"/> -->
     <node pkg="relaxed_ik" type="relaxed_ik_node.py" name="relaxed_ik_node" output="log"/>
