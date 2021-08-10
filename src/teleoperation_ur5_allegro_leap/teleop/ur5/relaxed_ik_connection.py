@@ -140,8 +140,9 @@ class Relaxed_UR5_Connection():
                 self.joint_manager.emergency_stop()
         else:
             self.safety_counter = 0
-            rospy.logwarn('EE Back in Bounds! Restart!')
-            self.joint_manager.restart()
+            if self.joint_manager.stopped:
+                rospy.logwarn('EE Back in Bounds! Restart!')
+                self.joint_manager.restart()
             
         
 
