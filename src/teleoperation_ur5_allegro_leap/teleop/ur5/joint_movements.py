@@ -170,16 +170,16 @@ class RealJointMovementManager(JointMovementManager):
     def terminate(self):
         self.joint_target_pub.cancel_all_goals()
         # self.joint_target_pub.stop_tracking_goal()
-        if self.joint_listener is not None:
-            self.joint_listener.unregister()
-            self.joint_listener = None
+        # if self.joint_listener is not None:
+        #     self.joint_listener.unregister()
+        #     self.joint_listener = None
         
     def emergency_stop(self):
         self.stopped = True
         self.joint_target_pub.cancel_all_goals()
-        if self.joint_listener is not None:
-            self.joint_listener.unregister()
-            self.joint_listener = None
+        # if self.joint_listener is not None:
+        #     self.joint_listener.unregister()
+        #     self.joint_listener = None
         
     def restart(self):
         self.stopped = False
