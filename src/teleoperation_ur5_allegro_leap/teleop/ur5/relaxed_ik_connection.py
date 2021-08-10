@@ -66,15 +66,13 @@ class Relaxed_UR5_Connection():
         # self.moveit_interface = movegroup if isinstance(movegroup, MoveGroupCommander) \
         #     else MoveGroupCommander(movegroup)
         rospy.wait_for_service('compute_fk')
-        self.compute_fk = rospy.ServiceProxy('compute_fk', GetPositionFK)
+        self._fk_service = rospy.ServiceProxy('compute_fk', GetPositionFK)
         # self.moveit_interface.go(
         #     joints=JointState(name=self.jnames, position=init_state),
         #     wait=True) #go to the initial position requested to relaxed_ik
         
         
-        pose = self.compute_fk(
-            Header(0,rospy.Time.now(),"world"), ['hand_root'], 
-            RobotState(joint_state=JointState(name=self.jnames, position=init_state))).pose_stamped[0].pose
+        pose = self.compute_fk(init_state).pose
             
         self.OnSolutionReceived(
             JointAngles(angles=Float64(init_state)))
@@ -87,6 +85,13 @@ class Relaxed_UR5_Connection():
         
         rospy.Timer(rospy.Duration(1/15.), lambda msg: self.check_ee_safety())
 
+    def compute_fk(self, arm_state=None):
+        if arm_state is None:
+            arm_state = self.joint_manager.current_j_state.position
+        posestamped = self._fk_service(
+            Header(0,rospy.Time.now(), "world"), ['hand_root'], 
+            RobotState(joint_state=JointState(name=self.jnames, position=arm_state))).pose_stamped[0]
+        return posestamped
 
     def set_debug_properties(self):
         self.marker_target_pub = rospy.Publisher(self.goal_marker_topic, PoseStamped, queue_size=1)
@@ -124,11 +129,7 @@ class Relaxed_UR5_Connection():
             rospy.logwarn('Arm seems to move too fast! Difference of sequencial joint angles too damn high!')
             
     def check_ee_safety(self):
-        current_pos = self.joint_manager.current_j_state.position
-        # pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose
-        pose = self.compute_fk(
-            Header(0,rospy.Time.now(),"world"), ['hand_root'], 
-            RobotState(joint_state=JointState(name=self.jnames, position=current_pos))).pose_stamped[0].pose
+        pose = self.compute_fk().pose
         frame = pm.fromMsg(pose)
         
         if not self.input_manager.workspace.in_bounds(frame.p, 5e-2):
@@ -139,6 +140,8 @@ class Relaxed_UR5_Connection():
                 self.joint_manager.emergency_stop()
         else:
             self.safety_counter = 0
+            rospy.logwarn('EE Back in Bounds! Restart!')
+            self.joint_manager.restart()
             
         
 
