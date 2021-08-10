@@ -290,9 +290,11 @@ if __name__ == "__main__":
 
     hand_root = rospy.get_param('~hand_root', default='center')
     publish_on = rospy.get_param('~publish_on', default='root')
+    filtered = rospy.get_param('~filter', default=True)
+    topic = '/leap_motion/leap_filtered' if filtered else '/leap_motion/leap_device'
     fixed_frame_name = rospy.get_param(
         '~fixed_frame_name', default='leap_hands')
-    leap_tf = Leap_TF_Pub(leap_topic='/leap_motion/leap_device',
+    leap_tf = Leap_TF_Pub(leap_topic=topic,
                           hand_root=hand_root,
                           hands_frame_name='leap_hands', fingers_frame_base_name='leap_fingers',)
 
