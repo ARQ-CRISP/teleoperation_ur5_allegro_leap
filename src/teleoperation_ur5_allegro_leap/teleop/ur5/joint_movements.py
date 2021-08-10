@@ -60,11 +60,11 @@ class JointMovementManager(object):
         raise NotImplementedError
 
     def generate_movement(self, j_target): 
-        old_jangles = self.last_j_state_target
-        old_jangles2 = np.asarray((self.current_j_state.position))
-        dist = np.absolute((np.asarray(j_target) - np.asarray(old_jangles2)))
+        # old_jangles = self.last_j_state_target
+        old_jangles = np.asarray((self.current_j_state.position))
+        dist = np.absolute((np.asarray(j_target) - np.asarray(old_jangles)))
         T = rospy.Duration(dist.max()/(np.pi/20.))
-        velocity = ((np.asarray(j_target) - np.asarray(old_jangles2)) / T.to_sec()).tolist()
+        velocity = ((np.asarray(j_target) - np.asarray(old_jangles)) / T.to_sec()).tolist()
         if np.any(dist > 1e-3):
             target = self.define_trajectory(j_target, velocity, T)
             self.go_to(target)
@@ -105,7 +105,7 @@ class JointMovementManager(object):
         vel_steps = vel_increments * max_vel 
         
         # vel_steps[:, -1] *= 1/3.
-        return (t_steps[-2:-1], pos_steps[-2:-1], vel_steps[-2:-1])
+        return (t_steps[-1:], pos_steps[-1:], vel_steps[-1:])
         
 
 class SimJointMovementManager(JointMovementManager):
@@ -158,11 +158,11 @@ class RealJointMovementManager(JointMovementManager):
         rospy.loginfo("[" + rospy.get_name() + "]" + " Connected to Robot!")
     
     def go_to(self, target):
+        
         if len(target) > 0 and not self.stopped:
             goal = FollowJointTrajectoryGoal(
                 trajectory=JointTrajectory(joint_names=self.jnames))
             goal.trajectory.points = target
-            # print(target)
             self.joint_target_pub.cancel_goal()
             # self.joint_target_pub.stop_tracking_goal()
             self.joint_target_pub.send_goal(goal)
@@ -187,10 +187,10 @@ class RealJointMovementManager(JointMovementManager):
         #     self.joint_listener_topic, JointState, self.listen_j_state, queue_size=1)
 
     def define_trajectory(self, js_postion, j_velocity, duration):
-        old_jangles = self.last_j_state_target
+        old_jangles = self.current_j_state.position
         dist = np.absolute((np.asarray(js_postion) - np.asarray(old_jangles)))
         
-        if np.any(dist > 1e-4):
+        if np.any(dist > 1e-3):
             
             # N = 3
             self.N = 11
