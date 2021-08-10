@@ -40,7 +40,7 @@ class Relaxed_UR5_Connection():
     request_topic = ur5_teleop_prefix + 'ur5_pose_targets'
     goal_marker_topic = ur5_teleop_prefix + 'target_marker_debug'
     
-    max_angle = np.pi/8.
+    max_angle = np.pi/4.
     min_angle = 1e-4
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
@@ -62,24 +62,19 @@ class Relaxed_UR5_Connection():
             self.relaxed_ik_solutions_topic, JointAngles, self.OnSolutionReceived, queue_size=1)
 
 
-        # roscpp_initialize(sys.argv)
-        # self.moveit_interface = movegroup if isinstance(movegroup, MoveGroupCommander) \
-        #     else MoveGroupCommander(movegroup)
         rospy.wait_for_service('compute_fk')
         self._fk_service = rospy.ServiceProxy('compute_fk', GetPositionFK)
-        # self.moveit_interface.go(
-        #     joints=JointState(name=self.jnames, position=init_state),
-        #     wait=True) #go to the initial position requested to relaxed_ik
         
         
         pose = self.compute_fk(init_state).pose
             
         self.OnSolutionReceived(
-            JointAngles(angles=Float64(init_state)))
+            JointAngles(angles=Float64(init_state)), True)
         
         # pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose #get the pose relative to world
         
         #Input manager Initialised here
+        rospy.sleep(1)
         self.input_manager = Combined_Arm_Teleop_Input(pm.fromMsg(pose))
         # self.init_pose = pm.fromMsg(pose)
         
@@ -111,22 +106,22 @@ class Relaxed_UR5_Connection():
         rospy.set_param(self.absolute_teleop_mode_rosparam, value)
     
         
-    def OnSolutionReceived(self, joint_angle_msg):
+    def OnSolutionReceived(self, joint_angle_msg, force=False):
         """Function activated once the relaxedIK module has a ready solution
 
         Args:
             joint_angle_msg (relaxed_ik.msg.JointAngles): The JointAngles solution message
         """
-        # print(joint_angle_msg.angles.data)
+        
         diff = (
             np.asarray(joint_angle_msg.angles.data) - \
                 np.asarray(self.joint_manager.current_j_state.position)).round(2)
-        if self.min_angle < np.max(diff) < self.max_angle :
+        if (self.min_angle < np.max(diff) < self.max_angle) or force:
             self.joint_manager.generate_movement(joint_angle_msg.angles.data)
-            rospy.loginfo(str(diff))
+            
             
         elif np.any(np.absolute(diff) >= self.max_angle):
-            rospy.logwarn('Arm seems to move too fast! Difference of sequencial joint angles too damn high!')
+            rospy.logwarn('Arm seems to move too fast! max diff: {}'.format(np.absolute(diff).max()))
             
     def check_ee_safety(self):
         pose = self.compute_fk().pose
