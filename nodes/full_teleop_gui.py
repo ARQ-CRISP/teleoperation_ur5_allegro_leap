@@ -19,6 +19,7 @@ from teleoperation_ur5_allegro_leap.srv import Arm_Cartesian_Target
 from teleoperation_ur5_allegro_leap.srv import Toggle_Tracking, Toggle_TrackingResponse
 from teleoperation_ur5_allegro_leap.srv import Toggle_ArmTeleopMode, Toggle_ArmTeleopModeResponse
 from teleoperation_ur5_allegro_leap.srv import GoTo_ByName
+from teleoperation_ur5_allegro_leap.srv import Go_To_Base
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 import Tkinter as tk
 import rospy
@@ -32,9 +33,10 @@ class Teleop_GUI():
     toggle_tracking_arm_srv = ur5_teleop_prefix + 'toggle_tracking'
     toggle_tracking_hand_srv = allegro_telop_prefx + 'toggle_tracking'
     hand_pose_byname_srv = allegro_telop_prefx + 'pose_by_name'
+    go_to_base_srv = ur5_teleop_prefix + 'go_to_base'
     
     
-    def __init__(self, step=0.01, width=350, height=600, arm=True, hand=True):
+    def __init__(self, step=0.01, width=350, height=650, arm=True, hand=True):
         
         self.tracking = {'arm': True, 'hand': True}
         self.tracking_mode = {'arm': '', 'hand': 'Active'}
@@ -73,6 +75,8 @@ class Teleop_GUI():
             rospy.wait_for_service(self.marker_request_topic)
             rospy.wait_for_service(self.toggle_tracking_arm_srv)
             rospy.wait_for_service(self.toggle_teleop_mode_srv)
+            rospy.wait_for_service(self.go_to_base_srv)
+            self.__go_to_arm_base = rospy.ServiceProxy(self.go_to_base_srv, Go_To_Base)
             self.move_marker_by = rospy.ServiceProxy(self.marker_request_topic, Arm_Cartesian_Target)
             self.__toggle_arm_tracking = rospy.ServiceProxy(self.toggle_tracking_arm_srv, Toggle_Tracking)
             self.tracking['arm'] = self.__toggle_arm_tracking(update=False).is_tracking
@@ -85,7 +89,16 @@ class Teleop_GUI():
             self.__toggle_hand_tracking = rospy.ServiceProxy(self.toggle_tracking_hand_srv, Toggle_Tracking)
             self.__go_to_hand = rospy.ServiceProxy(self.hand_pose_byname_srv, GoTo_ByName)
             self.tracking['hand'] = self.__toggle_hand_tracking(update=False).is_tracking
+
+    def go_to_arm_base(self):
+        if self.tracking['arm']:
+            self.toggle_tracking('arm')
         
+        self.__go_to_arm_base()
+        self.master.after(500, lambda : self.toggle_tracking('arm') if not self.tracking['arm'] else False)
+        # if not self.tracking['arm']:
+        #     self.__toggle_teleop_mode(True)
+
     def update_status_string(self):
         arm_status = 'Stop' if not self.tracking['arm'] else self.tracking_mode['arm']
         hand_status = 'Stop' if not self.tracking['hand'] else self.tracking_mode['hand']
@@ -120,6 +133,11 @@ class Teleop_GUI():
             self.event_catcher.bind_action('F3', (
                 lambda: self.toggle_tracking_mode('arm'),
                 None), 'Toggle Arm Tracking Mode' , 'arm_modes')
+            
+            self.event_catcher.bind_action('F8', (
+                lambda: self.go_to_arm_base(),
+                None), 'Go to Arm Base Pose' , 'arm_modes')
+
         
         if hand:
             self.event_catcher.add_frame('hand_modes')
