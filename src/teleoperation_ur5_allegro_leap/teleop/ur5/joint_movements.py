@@ -183,8 +183,8 @@ class RealJointMovementManager(JointMovementManager):
         
     def restart(self):
         self.stopped = False
-        self.joint_listener = rospy.Subscriber(
-            self.joint_listener_topic, JointState, self.listen_j_state, queue_size=1)
+        # self.joint_listener = rospy.Subscriber(
+        #     self.joint_listener_topic, JointState, self.listen_j_state, queue_size=1)
 
     def define_trajectory(self, js_postion, j_velocity, duration):
         old_jangles = self.last_j_state_target
