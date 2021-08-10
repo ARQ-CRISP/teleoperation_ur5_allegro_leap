@@ -66,6 +66,7 @@ add_service_files(
   Update_Finger_Measure.srv
   Get_Fingertip_Distance.srv
   Toggle_ArmTeleopMode.srv
+  Go_To_Base.srv
 )
 
 ## Generate actions in the 'action' folder

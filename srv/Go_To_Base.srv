@@ -1,0 +1,7 @@
+string marker_base = 'marker'
+string init_base = 'init'
+
+
+string base
+---
+bool result

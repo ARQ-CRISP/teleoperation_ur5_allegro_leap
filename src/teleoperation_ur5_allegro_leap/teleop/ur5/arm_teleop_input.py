@@ -19,7 +19,7 @@ from teleoperation_ur5_allegro_leap.teleop.ur5 import InteractiveControl
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
 from teleoperation_ur5_allegro_leap.srv import Arm_Cartesian_Target, Arm_Cartesian_TargetResponse
-
+from teleoperation_ur5_allegro_leap.srv import Go_To_Base, Go_To_BaseResponse, Go_To_BaseRequest
 
 class Arm_Teleop_Input(object):
     
@@ -179,6 +179,7 @@ class Arm_Teleop_Input(object):
     
 class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
     
+    go_to_base_srv = ur5_teleop_prefix + 'go_to_base'
     marker_request_topic = ur5_teleop_prefix + 'move_marker_pose'
     def __init__(self, init_pose=None, rotation_bias=None, workspace=None):
         
@@ -202,6 +203,29 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
         self._set_marker_pose_service = rospy.Service(self.marker_request_topic, Arm_Cartesian_Target,
                                                       lambda msg: Arm_Cartesian_TargetResponse(
                                                           self.set_interactive_pose(msg.query)))
+
+        self.__go_to_base = rospy.Service(self.go_to_base_srv, Go_To_Base,
+                                                lambda msg: Go_To_BaseResponse(result=self.go_to_base(msg.base)))
+    
+    def go_to_base(self, base):
+        target = PoseStamped()
+        try:
+            if base == 'init':
+                super(Combined_Arm_Teleop_Input, self).OnPoseRequest(target)
+                return True
+            else:
+                #[-0.707, -0.000, 0.707, -0.000]
+                # target.pose.orientation.x = -0.707
+                # target.pose.orientation.z = 0.707
+                target.pose.orientation.w = 1.
+                print(target)
+                self.OnPoseRequest(target)
+                return True
+            
+                self.go_to_pose(self.target)
+                return True
+        except Exception as e:
+            return False
         
     def to_markers_frame(self, pose):
         self.interactive_m.frame
@@ -212,6 +236,7 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
         target = Frame() 
         target.M = self.interactive_m.frame.M * request.M
         target.p = self.interactive_m.frame.p + request.p
+        # print(list(target.p), list(target.M.GetQuaternion()))
         target.p = Vector(*self.workspace.bind(target.p))
         # self.interactive_m.frame * request
         # if self.get_absolute_mode_flag():
