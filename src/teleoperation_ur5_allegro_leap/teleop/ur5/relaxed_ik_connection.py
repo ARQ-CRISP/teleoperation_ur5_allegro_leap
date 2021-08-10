@@ -11,11 +11,13 @@ from PyKDL import Frame, Rotation, Vector
 from tf_conversions import posemath as pm
 from moveit_commander import MoveGroupCommander, roscpp_initialize
 from moveit_commander.conversions import list_to_pose, pose_to_list
+from moveit_msgs.srv import GetPositionFK 
+from moveit_msgs.msg import RobotState 
 
 from sensor_msgs.msg import JointState
 # from moveit_msgs.msg import RobotState
 from geometry_msgs.msg import Pose, PoseStamped
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, Header
 from visualization_msgs.msg import Marker
 from relaxed_ik.msg import EEPoseGoals, JointAngles
 
@@ -60,17 +62,24 @@ class Relaxed_UR5_Connection():
             self.relaxed_ik_solutions_topic, JointAngles, self.OnSolutionReceived, queue_size=1)
 
 
-        roscpp_initialize(sys.argv)
-        self.moveit_interface = movegroup if isinstance(movegroup, MoveGroupCommander) \
-            else MoveGroupCommander(movegroup)
-        self.moveit_interface.go(
-            joints=JointState(name=self.jnames, position=init_state),
-            wait=True) #go to the initial position requested to relaxed_ik
+        # roscpp_initialize(sys.argv)
+        # self.moveit_interface = movegroup if isinstance(movegroup, MoveGroupCommander) \
+        #     else MoveGroupCommander(movegroup)
+        rospy.wait_for_service('compute_fk')
+        self.compute_fk = rospy.ServiceProxy('compute_fk', GetPositionFK)
+        # self.moveit_interface.go(
+        #     joints=JointState(name=self.jnames, position=init_state),
+        #     wait=True) #go to the initial position requested to relaxed_ik
         
+        
+        pose = self.compute_fk(
+            Header(0,rospy.Time.now(),"world"), ['hand_root'], 
+            RobotState(joint_state=JointState(name=self.jnames, position=init_state))).pose_stamped[0].pose
+            
         self.OnSolutionReceived(
             JointAngles(angles=Float64(init_state)))
         
-        pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose #get the pose relative to world
+        # pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose #get the pose relative to world
         
         #Input manager Initialised here
         self.input_manager = Combined_Arm_Teleop_Input(pm.fromMsg(pose))
@@ -115,19 +124,22 @@ class Relaxed_UR5_Connection():
             rospy.logwarn('Arm seems to move too fast! Difference of sequencial joint angles too damn high!')
             
     def check_ee_safety(self):
-        
-        pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose
+        current_pos = self.joint_manager.current_j_state.position
+        # pose = self.moveit_interface.get_current_pose(end_effector_link="hand_root").pose
+        pose = self.compute_fk(
+            Header(0,rospy.Time.now(),"world"), ['hand_root'], 
+            RobotState(joint_state=JointState(name=self.jnames, position=current_pos))).pose_stamped[0].pose
         frame = pm.fromMsg(pose)
         
         if not self.input_manager.workspace.in_bounds(frame.p, 5e-2):
             self.safety_counter += 1
             rospy.logwarn('EE Out of Bounds! Return to Workspace!')
+            if self.safety_counter > 20 and not self.joint_manager.stopped:
+                rospy.logwarn('EE Out of Bounds! Emergency Stop!')
+                self.joint_manager.emergency_stop()
         else:
             self.safety_counter = 0
             
-        if self.safety_counter > 20:
-            rospy.logwarn('EE Out of Bounds! Emergency Stop!')
-            self.joint_manager.emergency_stop()
         
 
     def on_kill(self):
