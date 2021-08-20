@@ -4,6 +4,6 @@
           <arg name="reg_method" value="cpu"/>
           <arg name="depth_method" value="opengl"/>
     </include>
-    <node pkg="tf" type="static_transform_publisher" name="camera_link_broadcaster" args="0.13 0.38 1.73 -0.9990482 0 0 -0.0436194 world kinect2_rgb_optical_frame 100" />
+    <node pkg="tf" type="static_transform_publisher" name="camera_link_broadcaster" args="0.13 0.37 1.70 -0.9990482 0 0 -0.0436194 world kinect2_rgb_optical_frame 100" />
 
 </launch>
