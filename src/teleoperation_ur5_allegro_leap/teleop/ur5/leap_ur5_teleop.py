@@ -128,6 +128,7 @@ class Leap_Teleop_UR5():
     def toggle_tracking(self):
         if not self.is_tracking:
             rospy.loginfo('Arm Teleop: Resuming Tracking!')
+            self.previous_tf = None
             self.__leap_listener = rospy.Subscriber(
                 self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
         else:
