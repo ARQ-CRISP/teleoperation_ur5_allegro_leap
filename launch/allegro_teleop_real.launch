@@ -112,7 +112,7 @@
         <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find teleoperation_ur5_allegro_leap)/rviz/teleop_viz.rviz" />
     </group>
 
-    <include file="$(find haptic_glove_ros)/launch/opto2glove.launch" output="screen"/>
+    <!-- <include file="$(find haptic_glove_ros)/launch/opto2glove.launch" output="screen"/> -->
     <include file="$(find optoforce_publisher)/launch/optoforce_publisher.launch" output="log"/>
 
 
