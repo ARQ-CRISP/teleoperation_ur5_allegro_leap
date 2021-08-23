@@ -1,0 +1,35 @@
+<!-- -*- xml -*- -->
+<!--
+   Record HRP-2 data automatically in three separate rosbags:
+   - cameras images
+   - hrpsys information (IMU, force sensors, robot position)
+   - diagnostics (node output, diagnostics)
+  -->
+
+<launch>
+  <arg name="record_cameras" default="true" />
+  <arg name="record_state" default="true" />
+  <arg name="bag_path" default="/home/bespin"/>
+  <arg name="obj" default="obj1"/>
+  <arg name="mode" default="single"/>
+  
+ <!-- Are we on the robot (hrp2_14) or simulating (sim)? -->
+ <!-- <arg name="robot_machine_profile" default="hrp2_14" /> -->
+
+ <!-- Load the robot model and machine description -->
+ <!-- <include file="$(find hrp2_bringup)/launch/common.launch"> -->
+   <!-- <arg name="robot_machine_profile" value="$(arg robot_machine_profile)" /> -->
+ <!-- </include> -->
+
+ <node pkg="rosbag" type="record" name="rosbag_record_sensors"
+       args="record -o $(arg bag_path)/rosbags/camera_data_$(arg obj)_$(arg mode)  /kinect2/sd/image_depth/compressed /kinect2/sd/camera_info /kinect2/hd/image_color/compressed /kinect2/hd/camera_info /leap_motion/leap_device /leap_motion/leap_filtered /leap_motion/visualization_marker_array /optoforce_wrench_0 /optoforce_wrench_1 /optoforce_wrench_2 /optoforce_wrench_3 /tf /tf_static"
+       if="$(arg record_cameras)" />
+
+ <node pkg="rosbag" type="record" name="rosbag_record_joint_states"
+       args="record -o $(arg bag_path)/rosbags/robot_state_$(arg obj)_$(arg mode) /relaxed_ik/joint_angle_solutions /ur5/joint_states /joint_states /allegroHand_0/joint_cmd /allegroHand_0/joint_states /tf /tf_static"
+       if="$(arg record_state)" />
+
+ <!-- <node pkg="rosbag" type="record" name="rosbag_record_diag"
+       args="record -o $(arg bag_path)/rosbags/diagnostics_$(arg obj)_$(arg mode) /diagnostics /rosout"/>    -->
+
+</launch>
