@@ -9,7 +9,9 @@
 <launch>
   <arg name="record_cameras" default="true" />
   <arg name="record_state" default="true" />
-  <arg name="bag_path" default="/home/bespin"/>
+  <!-- <arg name="bag_path" default="/home/bespin"/> -->
+  <arg name="bag_path" default="/media/bespin/DataDrive/data_bags"/>
+
   <arg name="obj" default="obj1"/>
   <arg name="mode" default="single"/>
 
