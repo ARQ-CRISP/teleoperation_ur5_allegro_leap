@@ -12,7 +12,7 @@
   <arg name="bag_path" default="/home/bespin"/>
   <arg name="obj" default="obj1"/>
   <arg name="mode" default="single"/>
-  
+
  <!-- Are we on the robot (hrp2_14) or simulating (sim)? -->
  <!-- <arg name="robot_machine_profile" default="hrp2_14" /> -->
 
