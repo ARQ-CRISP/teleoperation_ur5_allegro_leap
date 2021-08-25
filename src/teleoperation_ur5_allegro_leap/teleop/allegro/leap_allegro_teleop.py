@@ -254,32 +254,32 @@ class Leap_Teleop_Allegro():
         c = 0.05
         for finger_name, finger in self.leap_hand_tracker.fingers.items():
             if finger.name is not 'Thumb':
-                scale = 1.55
+                scale = 1.6
             else:
                 scale = 1.0
             target_pose = self.get_position_target(finger, scale)
-            if finger_name == 'Index':
-                diff2middle = (index - middle)[[1,2]]
-                diff2thumb = (center - index)[[1,2]]
-                act  = (1 - sigmoid(np.linalg.norm(diff2middle) - 0.04, 0.9)) * f
-                actc = (1 - sigmoid(np.linalg.norm(diff2thumb) - 0.03, 0.7)) * c
-                target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
-                target_pose[0][[1,2]] += diff2thumb  / np.linalg.norm(diff2thumb)  * actc
-            elif finger_name == 'Ring': 
-                diff2middle = (ring - middle)[[1,2]]
-                diff2thumb  =  (center - ring)[[1,2]]
-                act  = (1 - sigmoid(np.linalg.norm(diff2middle) - 0.04, 0.8)) * f
-                actc = (1 - sigmoid(np.linalg.norm(diff2thumb) - 0.05, 0.7)) * c
-                target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
-                target_pose[0][[1,2]] += diff2thumb / np.linalg.norm(diff2thumb)   * actc
-            elif finger_name == 'Thumb':
-                diff = center_primary - thumb
-                act = (1 - sigmoid(np.linalg.norm(diff) - 0.06, 0.5)) * c
-                target_pose[0][[0,1,2]] +=  (diff)[[0,1,2]] / np.linalg.norm(diff) * act
-            elif finger_name == 'Middle': 
-                diff = (center - middle)[[1,2]]
-                act = (1 - sigmoid(np.linalg.norm(diff) - 0.03, 0.9)) * 2e-2
-                target_pose[0][[1,2]] +=  diff / np.linalg.norm(diff) * act
+            # if finger_name == 'Index':
+            #     diff2middle = (index - middle)[[1,2]]
+            #     diff2thumb = (center - index)[[1,2]]
+            #     act  = (1 - sigmoid(np.linalg.norm(diff2middle) - 0.04, 0.9)) * f
+            #     actc = (1 - sigmoid(np.linalg.norm(diff2thumb) - 0.03, 0.7)) * c
+            #     target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
+            #     target_pose[0][[1,2]] += diff2thumb  / np.linalg.norm(diff2thumb)  * actc
+            # elif finger_name == 'Ring': 
+            #     diff2middle = (ring - middle)[[1,2]]
+            #     diff2thumb  =  (center - ring)[[1,2]]
+            #     act  = (1 - sigmoid(np.linalg.norm(diff2middle) - 0.04, 0.8)) * f
+            #     actc = (1 - sigmoid(np.linalg.norm(diff2thumb) - 0.05, 0.7)) * c
+            #     target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
+            #     target_pose[0][[1,2]] += diff2thumb / np.linalg.norm(diff2thumb)   * actc
+            # elif finger_name == 'Thumb':
+            #     diff = center_primary - thumb
+            #     act = (1 - sigmoid(np.linalg.norm(diff) - 0.06, 0.5)) * c
+            #     target_pose[0][[0,1,2]] +=  (diff)[[0,1,2]] / np.linalg.norm(diff) * act
+            # elif finger_name == 'Middle': 
+            #     diff = (center - middle)[[1,2]]
+            #     act = (1 - sigmoid(np.linalg.norm(diff) - 0.03, 0.9)) * 2e-2
+            #     target_pose[0][[1,2]] +=  diff / np.linalg.norm(diff) * act
             
             if finger.velocity is not None > 1:
                 self.allegro_state[finger_name].translate_by(
