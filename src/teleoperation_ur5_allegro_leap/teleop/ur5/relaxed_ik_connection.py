@@ -84,7 +84,7 @@ class Relaxed_UR5_Connection():
         if arm_state is None:
             arm_state = self.joint_manager.current_j_state.position
         posestamped = self._fk_service(
-            Header(0,rospy.Time.now(), "world"), ['hand_root'], 
+            Header(0,rospy.Time.now(), "world"), ['palm_link'], 
             RobotState(joint_state=JointState(name=self.jnames, position=arm_state))).pose_stamped[0]
         return posestamped
 
@@ -116,6 +116,7 @@ class Relaxed_UR5_Connection():
         diff = (
             np.asarray(joint_angle_msg.angles.data) - \
                 np.asarray(self.joint_manager.current_j_state.position)).round(2)
+        diff = np.abs(np.arctan2(np.sin(diff), np.cos(diff)))
         if (self.min_angle < np.max(diff) < self.max_angle) or force:
             self.joint_manager.generate_movement(joint_angle_msg.angles.data)
             
