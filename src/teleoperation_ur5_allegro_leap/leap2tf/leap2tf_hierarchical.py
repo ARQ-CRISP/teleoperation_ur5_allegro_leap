@@ -176,7 +176,7 @@ class Leap_TF_Pub(object):
                     bone_quat = quaternion_from_matrix(M)
                     bone_quat /= np.linalg.norm(bone_quat)
                 else:
-                    x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi/10.)
+                    x_quat = quaternion_from_axis_angle(np.eye(3)[0], np.pi/5.)
                     bone_quat = quaternion_multiply(bone_quat, x_quat)
                 # bone_quat = quaternion_multiply(bone_quat, [ 0, -0.3826834, 0, 0.9238795 ]) #-45deg
                 # bone_quat = quaternion_multiply(bone_quat, [ 0, 0.3826834, 0, 0.9238795 ]) #45deg
