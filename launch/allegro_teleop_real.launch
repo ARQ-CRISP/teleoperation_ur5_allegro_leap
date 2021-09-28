@@ -28,7 +28,6 @@
             <arg name="HAND" value="right"/>
             <arg name="TIME_LIMIT" value="4.0" />
             <arg name="TORQUE_TOPIC" value="position_torque"/>
-            
         </include>
         <!-- <include file="$(find allegro_hand_kdl)/launch/cartesian_pose_control.launch"> -->
                 <!-- <arg name="NUM" default="0"/> -->
@@ -76,8 +75,17 @@
         <!-- <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen"> -->
         <!-- <remap from="joint_states" to="allegroHand_0/joint_states"/> -->
         <!-- </node> -->
+        <node name="allegro_joint_filter"
+            type="allegro_joint_filter"
+            pkg="allegro_hand_kdl"
+            output="screen">
+            <!-- <remap from="allegroHand_$(arg NUM)/joint_states_original" to="allegroHand_$(arg NUM)/joint_states"/> -->
+            <remap from="allegroHand_0/joint_states_filtered" to="allegroHand_0/joint_states"/>
+        </node>
 
-        <include file="$(find allegro_hand_kdl)/launch/gravity_compensate.launch"/>
+        <include file="$(find allegro_hand_kdl)/launch/gravity_compensate.launch">
+            <!-- <remap from="allegroHand_$(arg NUM)/joint_states" to="allegroHand_$(arg NUM)/joint_states_filtered"/> -->
+        </include>
 
     </group>
 

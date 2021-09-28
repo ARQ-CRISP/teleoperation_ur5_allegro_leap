@@ -258,7 +258,7 @@ class Leap_Teleop_Allegro():
             if finger.name is 'Thumb':
                 scale = 1.
             elif finger.name is 'Ring':
-                scale = 1.6
+                scale = 1.65
             elif finger.name is 'Index':
                 scale = 1.59
             elif finger.name is 'Middle':
