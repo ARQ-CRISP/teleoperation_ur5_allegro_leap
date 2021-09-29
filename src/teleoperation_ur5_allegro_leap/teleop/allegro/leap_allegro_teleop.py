@@ -246,11 +246,11 @@ class Leap_Teleop_Allegro():
         middle = self.leap_hand_tracker.fingers['Middle'].position[-1, :]
         ring = self.leap_hand_tracker.fingers['Ring'].position[-1, :]
         thumb = self.leap_hand_tracker.fingers['Thumb'].position[-1, :]
-        center = np.mean([0.2/3*index, 0.2/3*middle, 0.2/3*ring, 0.8*thumb], axis=0)
+        center = np.mean([0.2/3*index, 0.2/3*middle, 0.8*thumb], axis=0)
         dist2thumb = np.asarray([np.linalg.norm(index-thumb), np.linalg.norm(middle-thumb), np.linalg.norm(ring-thumb)])
         dist2thumb /= dist2thumb.max()
         dist2thumb = np.asarray([1.] * 3)
-        center_primary = np.mean(np.asarray([index, middle, ring]) * (1 - dist2thumb), axis=0)
+        center_primary = np.mean(np.asarray([index, middle]) * (1 - dist2thumb), axis=0)
         # print('center', center) 
         f = 0.035
         c = 0.05
@@ -262,7 +262,7 @@ class Leap_Teleop_Allegro():
             elif finger.name is 'Index':
                 scale = 1.59
             elif finger.name is 'Middle':
-                scale = 1.57
+                scale = 1.58
             target_pose = self.get_position_target(finger, scale)
             if finger_name == 'Index':
                 diff2middle = (index - middle)[[1,2]]
@@ -272,12 +272,14 @@ class Leap_Teleop_Allegro():
                 target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
                 target_pose[0][[1,2]] += diff2thumb  / np.linalg.norm(diff2thumb)  * actc
             elif finger_name == 'Ring': 
-                diff2middle = (ring - middle)[[1,2]]
-                diff2thumb  =  (center - ring)[[1,2]]
-                act  = (1 - sigmoid(np.linalg.norm(diff2middle) - 0.03, 0.6)) * f
-                actc = (1 - sigmoid(np.linalg.norm(diff2thumb) - 0.05, 0.7)) * c
-                target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
-                target_pose[0][[1,2]] += diff2thumb / np.linalg.norm(diff2thumb)   * actc
+                # diff2middle = (ring - middle)[[1,2]]
+                # diff2thumb  =  (center - ring)[[1,2]]
+                # act  = (1 - sigmoid(np.linalg.norm(diff2middle) - 0.03, 0.6)) * f
+                # actc = (1 - sigmoid(np.linalg.norm(diff2thumb) - 0.05, 0.7)) * c
+                # target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
+                # target_pose[0][[1,2]] += diff2thumb / np.linalg.norm(diff2thumb)   * actc
+                target_pose[0][:] =  [0.061, -0.038, 0.148] #[0.09,0.01,0.05]
+                target_pose[1][:] = [0.0, 0.0, 0.0, 1.0]
             elif finger_name == 'Thumb':
                 rot0 = R.from_quat([
                     [-0.260, 0.205, 0.538, 0.775], # quaternion on lifted thumb (all left)
@@ -295,7 +297,7 @@ class Leap_Teleop_Allegro():
                 thumb_move = thumb - self.leap_hand_tracker.fingers['Thumb'].position[-2, :]
                 # print('thumb_move: ', thumb_move[1])
                 # if np.abs(thumb_move[1]) > 0.01:
-                if z > 0.7:
+                if z > 0.5:
                     target_pose[0][[1]] += thumb_move[1] * 2.5 #increase frontal moving
                     target_pose[0][[2]] -= thumb_move[2] * 2.5 #reduce lateral moving
                 act = (1 - sigmoid(np.linalg.norm(diff_primary) - 0.06, 100)) * c
