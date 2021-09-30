@@ -35,8 +35,10 @@ class Leap_Hand_TF_Tracker():
         self.tf_buffer = tf_buffer
         # self.last_measurement_time = time
         self.tracked_fingers = tracked_fingers if tracked_fingers is not None else self.FINGER_ORDER
-        self.fingers = OrderedDict([ #setting the fingers as the list of tracked fingers (Ordered dict, allows to get the items in the right order)
-            (finger, Leap_Finger_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections)) for finger in self.tracked_fingers])
+        self.fingers = OrderedDict([ # setting the fingers as the list of tracked fingers 
+                                     # (Ordered dict, allows to get the items in the right order)
+            (finger, Leap_Finger_TF_Tracker(
+                finger, tf_buffer, base_frame, left_hand_mode, tracked_sections)) for finger in self.tracked_fingers])
         self.left_hand_mode = left_hand_mode
 
         # if measure_on_init:
