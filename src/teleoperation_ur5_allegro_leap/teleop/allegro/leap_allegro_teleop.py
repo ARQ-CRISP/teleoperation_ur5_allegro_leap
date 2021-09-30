@@ -271,15 +271,15 @@ class Leap_Teleop_Allegro():
                 actc = (1 - sigmoid(np.linalg.norm(diff2thumb) - 0.03, 0.7)) * c
                 target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
                 target_pose[0][[1,2]] += diff2thumb  / np.linalg.norm(diff2thumb)  * actc
+                
             elif finger_name == 'Ring': 
-                # diff2middle = (ring - middle)[[1,2]]
-                # diff2thumb  =  (center - ring)[[1,2]]
-                # act  = (1 - sigmoid(np.linalg.norm(diff2middle) - 0.03, 0.6)) * f
-                # actc = (1 - sigmoid(np.linalg.norm(diff2thumb) - 0.05, 0.7)) * c
-                # target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
-                # target_pose[0][[1,2]] += diff2thumb / np.linalg.norm(diff2thumb)   * actc
-                target_pose[0][:] =  [0.061, -0.038, 0.148] #[0.09,0.01,0.05]
-                target_pose[1][:] = [0.0, 0.0, 0.0, 1.0]
+                diff2middle = (ring - middle)[[1,2]]
+                diff2thumb  =  (center - ring)[[1,2]]
+                act  = (1 - sigmoid(np.linalg.norm(diff2middle) - 0.03, 0.6)) * f
+                actc = (1 - sigmoid(np.linalg.norm(diff2thumb) - 0.05, 0.7)) * c
+                target_pose[0][[1,2]] += diff2middle / np.linalg.norm(diff2middle) * act
+                target_pose[0][[1,2]] += diff2thumb / np.linalg.norm(diff2thumb)   * actc
+
             elif finger_name == 'Thumb':
                 rot0 = R.from_quat([
                     [-0.260, 0.205, 0.538, 0.775], # quaternion on lifted thumb (all left)
