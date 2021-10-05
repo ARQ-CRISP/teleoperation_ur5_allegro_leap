@@ -64,30 +64,30 @@ class Allegro_State(object):
             self.fingers[finger_name].update_measure(time)
 
 
-class Allegro_Finger_State():
+class Allegro_Finger_State(object):
 
     def __init__(self, finger_name, tf_buffer, time=None, base_frame="hand_root", logging=False):
 
         time = rospy.Time.now() if time is None else time
-        self.__finger2linklist = None
+        self._finger2linklist = None
         self.last_time_measured = None
-        self.__last_time_moved = None
-        self.__last_movement = None
-        self.__len = None
+        self._last_time_moved = None
+        self._last_movement = None
+        self._len = None
         self.base_frame = base_frame
         self.name = finger_name
         self.buffer = tf_buffer
         self.logging = logging
-        self.ee_position, self.ee_orientation = self.__measure_current_state(
+        self.ee_position, self.ee_orientation = self._measure_current_state(
             time)
-        self.base_position, self.base_orientation = self.__measure_current_state(
+        self.base_position, self.base_orientation = self._measure_current_state(
             time, 0)
         rospy.loginfo(rospy.get_name() + '--> Initialization of ' + self.name +
                       " Completed! Measured at: " + str(self.last_time_measured.to_sec()))
 
     @property
     def last_movement(self):
-        return (self.__last_time_moved, self.__last_movement)
+        return (self._last_time_moved, self._last_movement)
 
     @property
     def ee_pose(self):
@@ -102,12 +102,12 @@ class Allegro_Finger_State():
 
     # @property
     def finger_length(self, force_measure=False):
-        if self.__len == None or force_measure:
-            self.__len = 0.0
-            for i in range(1, 5):
-                self.__len += np.linalg.norm(
-                    self.__measure_current_state(finger_section=i)[0] - self.__measure_current_state(finger_section=i-1)[0])
-        return self.__len
+        if self._len == None or force_measure:
+            self._len = 0.0
+            for i in range(2, 5):
+                self._len += np.linalg.norm(
+                    self._measure_current_state(finger_section=i)[0] - self._measure_current_state(finger_section=i-1)[0])
+        return self._len
 
     def to_target_dict(self, rotation=False):
         target = dict()
@@ -126,8 +126,8 @@ class Allegro_Finger_State():
 
     def to_PoseStamped(self, time=None, stamped=True):
         if time is None:
-            time = self.last_time_measured if self.__last_time_moved is None or\
-                (self.last_time_measured > self.__last_time_moved) else self.__last_time_moved
+            time = self.last_time_measured if self._last_time_moved is None or\
+                (self.last_time_measured > self._last_time_moved) else self._last_time_moved
         postion = self.ee_position.round(4).tolist()
         orientation = self.ee_orientation.round(4).tolist()
         stamped = PoseStamped()
@@ -152,12 +152,12 @@ class Allegro_Finger_State():
             translation = np.array(translation)
 
         self.ee_position += translation
-        self.__last_movement = translation
-        self.__last_time_moved = rospy.Time.now() if time is None else time
+        self._last_movement = translation
+        self._last_time_moved = rospy.Time.now() if time is None else time
         if self.logging:
             rospy.loginfo(rospy.get_name().split()[0] + '--> movement of ' + self.name +
-                          " by " + str(self.__last_movement.round(3)) +
-                          " Completed at: " + str(self.__last_time_moved.to_sec()))
+                          " by " + str(self._last_movement.round(3)) +
+                          " Completed at: " + str(self._last_time_moved.to_sec()))
         return self
 
     def goto(self, position, orientation, time=None):
@@ -166,19 +166,19 @@ class Allegro_Finger_State():
         translation = position - self.ee_position
         self.ee_position = position
         self.ee_orientation = orientation
-        self.__last_movement = translation
-        self.__last_time_moved = rospy.Time.now() if time is None else time
+        self._last_movement = translation
+        self._last_time_moved = rospy.Time.now() if time is None else time
         if self.logging:
             rospy.loginfo(rospy.get_name().split()[0] + '--> movement of ' + self.name +
-                          " by " + str(self.__last_movement.round(3)) +
-                          " Completed at: " + str(self.__last_time_moved.to_sec()))
+                          " by " + str(self._last_movement.round(3)) +
+                          " Completed at: " + str(self._last_time_moved.to_sec()))
         return self
 
     def update_measure(self, time=None):
         time = rospy.Time.now() if time is None else time
-        self.ee_position, self.ee_orientation = self.__measure_current_state(
+        self.ee_position, self.ee_orientation = self._measure_current_state(
             time)
-        self.base_position, self.base_orientation = self.__measure_current_state(
+        self.base_position, self.base_orientation = self._measure_current_state(
             time, 0)
 
         if self.logging:
@@ -187,13 +187,13 @@ class Allegro_Finger_State():
 
     def update_orient(self, time=None):
         time = rospy.Time.now() if time is None else time
-        _, self.ee_orientation = self.__measure_current_state(
+        _, self.ee_orientation = self._measure_current_state(
             time)
         if self.logging:
             rospy.loginfo(rospy.get_name() + '--> Update of ' + self.name +
                           " Completed! Measured at: " + str(self.last_time_measured.to_sec()))
 
-    def __measure_current_state(self, time=None, finger_section=-1):
+    def _measure_current_state(self, time=None, finger_section=-1):
 
         time = rospy.Time.now() if time is None else time
 
@@ -212,7 +212,22 @@ class Allegro_Finger_State():
         ])
         self.last_time_measured = time
         return [position, orientation]
-
+    
+class Allegro_Thumb_State(Allegro_Finger_State):
+    
+    def __init__(self, finger_name, tf_buffer, time=None, base_frame="hand_root", logging=False):
+        super(Allegro_Thumb_State, self).__init__(finger_name, tf_buffer, time, base_frame, logging)
+        
+        self.base_position, self.base_orientation = self._measure_current_state(
+            time, 2)
+    
+    def finger_length(self, force_measure=False):
+        if self._len == None or force_measure:
+            self._len = 0.0
+            for i in range(3, 5):
+                self._len += np.linalg.norm(
+                    self._measure_current_state(finger_section=i)[0] - self._measure_current_state(finger_section=i-1)[0])
+        return self._len
 
 if __name__ == "__main__":
     from pprint import pprint

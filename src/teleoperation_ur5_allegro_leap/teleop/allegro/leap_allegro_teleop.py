@@ -43,11 +43,15 @@ from teleoperation_ur5_allegro_leap.srv import Update_Finger_Measure, Update_Fin
 
 
 from .utils import pose2str, generate_tf, generate_pose_marker, list2ROSPose, ROSPose2list, STransform2SPose
-from .allegro_state import Allegro_Finger_State
+from .allegro_state import Allegro_Finger_State, Allegro_Thumb_State
 from .allegro_utils import finger_allegro_idx, allegro_fingers, common_allegro_poses#, compute_target_state_relax, allegro_finger2linklist
 from .leap_state import Leap_Hand_TF_Tracker
 
-Controllers_Dict = {'position': Control_Type.position, 'velocity': Control_Type.velocity, 'position_velocity' : Control_Type.position_velocity}
+Controllers_Dict = {
+    'position': Control_Type.position,
+    'velocity': Control_Type.velocity, 
+    'position_velocity' : Control_Type.position_velocity, 
+    'joint_position': Control_Type.joint_position}
 
 class Leap_Teleop_Allegro():
 
@@ -64,7 +68,7 @@ class Leap_Teleop_Allegro():
     pose_param = "/allegro_hand_kdl/poses/cartesian_poses/"
     pose_index = 2
     pose_cartesian_r_param = "/allegroHand_right_0/gains/cartesian/pose/r"
-    control_base_frame = 'hand_root'
+    control_base_frame = 'right_leap_fingers'
 
     def __init__(self, tf_buffer, leap_topic='/leap_motion/leap_filtered', lefthand_mode=False, scale=1.0, control_type=Control_Type.position_velocity):
         self.__finger2linklist = None
@@ -90,15 +94,19 @@ class Leap_Teleop_Allegro():
         self.allegro_state = OrderedDict()
         for finger_name, value in finger_allegro_idx.items():
             if value is not None:
-                self.allegro_state[finger_name] = Allegro_Finger_State(
-                    finger_name, self.tf_buffer)
+                if finger_name == 'Thumb':
+                    self.allegro_state[finger_name] = Allegro_Thumb_State(
+                        finger_name, self.tf_buffer)
+                else:
+                    self.allegro_state[finger_name] = Allegro_Finger_State(
+                        finger_name, self.tf_buffer)
                 
         self.leap_hand_tracker = Leap_Hand_TF_Tracker(
             self.tf_buffer,  # buffer recycling is good
             self.control_base_frame,  # hand_root
             self.lefthand_mode,  # same mode as teleop
             tracked_fingers=allegro_fingers, #tracks the fingers specified in allegro_utils
-            tracked_sections=[0, 1, 2, 3])  # Tracking only base and Fingertip
+            tracked_sections=[0, 1, 2, 3, 4])  # Tracking only base and Fingertip
 
         
         self.__leap_listener = rospy.Subscriber(
@@ -194,6 +202,9 @@ class Leap_Teleop_Allegro():
             markers = MarkerArray()
             try:
                 self.leap_hand_tracker.measure_state(leap_hand.header.stamp)
+                for finger_name, value in finger_allegro_idx.items():
+                    if value is not None:
+                        self.allegro_state[finger_name].update_measure(leap_hand.header.stamp)
                 self.publish_targets(markers, leap_hand.header.stamp)
             except (tf.LookupException, tf.ExtrapolationException) as e:
                 print(e)
@@ -257,12 +268,8 @@ class Leap_Teleop_Allegro():
         for finger_name, finger in self.leap_hand_tracker.fingers.items():
             if finger.name is 'Thumb':
                 scale = 1.
-            elif finger.name is 'Ring':
-                scale = 1.65
-            elif finger.name is 'Index':
-                scale = 1.59
-            elif finger.name is 'Middle':
-                scale = 1.57
+            else:
+                scale = 1.
             target_pose = self.get_position_target(finger, scale)
             if finger_name == 'Index':
                 diff2middle = (index - middle)[[1,2]]
@@ -300,17 +307,21 @@ class Leap_Teleop_Allegro():
                     target_pose[0][[2]] -= thumb_move[2] * 2.5 #reduce lateral moving
                 act = (1 - sigmoid(np.linalg.norm(diff_primary) - 0.06, 100)) * c
                 target_pose[0][[0,1,2]] += (diff_center)[[0,1,2]] / np.linalg.norm(diff_center) * act
-            # elif finger_name == 'Middle': 
-            #     diff = (center - middle)[[1,2]]
-            #     act = (1 - sigmoid(np.linalg.norm(diff) - 0.03, 0.9)) * 2e-2
-            #     target_pose[0][[1,2]] +=  diff / np.linalg.norm(diff) * act
+            elif finger_name == 'Middle': 
+                diff = (center - middle)[[1,2]]
+                act = (1 - sigmoid(np.linalg.norm(diff) - 0.03, 0.9)) * 2e-2
+                target_pose[0][[1,2]] +=  diff / np.linalg.norm(diff) * act
             
             if finger.velocity is not None > 1:
                 self.allegro_state[finger_name].translate_by(
                     self.scale[finger_name] * finger.velocity[-1, :], time=time)
                 target_pose[0] = self.allegro_state[finger_name].ee_position * (1 - position_weight) + target_pose[0] * position_weight
-            self.allegro_state[finger_name].goto(target_pose[0], target_pose[1])
-
+            # print(self.allegro_state[finger_name].ee_pose, target_pose[0])
+            self.allegro_state[finger_name].goto(self.allegro_state[finger_name].base_position+target_pose[0], target_pose[1])
+    
+    def update_joint_position_targets(self):
+        pass
+    
     def correct_targets(self, eps=0.01):
         def objfunc(x, hand_dists):
             # hand_dists = pdist(hand_x.reshape(4, 3))
@@ -353,6 +364,9 @@ class Leap_Teleop_Allegro():
                     self.update_velocity_targets(time)
 
             elif self.__control_type == Control_Type.position_velocity:
+                self.update_position_velocity_targets(time, position_weight=0.9)
+                
+            elif self.__control_type == Control_Type.joint_position:
                 self.update_position_velocity_targets(time, position_weight=0.9)
 
             # self.correct_targets(eps=0.02)

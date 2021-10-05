@@ -7,7 +7,7 @@ import tf2_ros
 from moveit_commander.conversions import (list_to_pose_stamped,
                                           transform_to_list)
 
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from allegro_utils import allegro_fingers
 
 
@@ -29,14 +29,16 @@ class Leap_Hand_TF_Tracker():
 
     FINGER_ORDER = allegro_fingers
 
-    def __init__(self, tf_buffer, base_frame='hand_root', left_hand_mode=False, tracked_fingers=None, tracked_sections=[3], history_len=3):
+    def __init__(self, tf_buffer, base_frame='hand_root', left_hand_mode=False, tracked_fingers=None, tracked_sections=[4], history_len=3):
 
         self.base_frame = base_frame
         self.tf_buffer = tf_buffer
         # self.last_measurement_time = time
         self.tracked_fingers = tracked_fingers if tracked_fingers is not None else self.FINGER_ORDER
         self.fingers = OrderedDict([ #setting the fingers as the list of tracked fingers (Ordered dict, allows to get the items in the right order)
-            (finger, Leap_Finger_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections)) for finger in self.tracked_fingers])
+             (finger, Leap_Thumb_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections)) if finger == 'Thumb' \
+                else (finger, Leap_Finger_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections)) \
+                for finger in self.tracked_fingers])
         self.left_hand_mode = left_hand_mode
 
         # if measure_on_init:
@@ -117,55 +119,57 @@ class Leap_Hand_TF_Tracker():
             return None
 
 
-class Leap_Finger_TF_Tracker():
-    __section2str = ['base', '1', '2', '3']
-    __leap_hand_str = ["right_", "left_"]
+class Leap_Finger_TF_Tracker(object):
+    _section2str = ['base', '0', '1', '2', '3']
+    _leap_hand_str = ["right_", "left_"]
 
-    def __init__(self, name, tf_buffer, base_frame='hand_root', left_hand_mode=False, tracked_sections=[0, 3], history_len=3):
+    def __init__(self, name, tf_buffer, base_frame='right_leap_fingers', left_hand_mode=False, tracked_sections=None, history_len=3):
 
         self.name = name
         self.tf_buffer = tf_buffer
         self.left_hand_mode = left_hand_mode
         self.base_frame = base_frame
-        self.__max_history = history_len
-        self.__len = None
+        self._max_history = history_len
+        self._len = None
         if tracked_sections is None:
-            self.tracked_sections = self.__section2str
+            self.tracked_sections = self._section2str
         else:
-            self.tracked_sections = [self.__section2str[i]
+            self.tracked_sections = [self._section2str[i]
                                      for i in tracked_sections]
 
         self.measurement_times = []
-        self.state = []
+        # self.state = []
+        self.state = deque([], history_len)
+        self.jstates = deque([], history_len)
         # if measure_on_init:
         # self.measure_state(time)
 
     def finger_length(self):
-        if self.__len is None:
+        if self._len is None:
             time = rospy.Time().now()
             new_state = np.zeros((4, 7))
-            for i, section in enumerate(range(3)):
-                finger_joint = self.__leap_hand_str[int(self.left_hand_mode)] + \
-                    self.name + "_" + self.__section2str[section]
+            for i, section in enumerate(range(2, 4)):
+                finger_joint = self._leap_hand_str[int(self.left_hand_mode)] + \
+                    self.name + "_" + self._section2str[section]
                 self.tf_buffer.can_transform(
                     self.base_frame, finger_joint, time, rospy.Duration(0.1))
                 leap_section_transform = self.tf_buffer.lookup_transform(
                     self.base_frame, finger_joint, time, rospy.Duration(0.2))
                 new_state[i, :] = np.array(transform_to_list(
                     leap_section_transform.transform))
-            self.__len = np.linalg.norm(
+            self._len = np.linalg.norm(
                 np.diff(new_state[:, :3], axis=0), axis=1)[1:].sum()
-        return self.__len
+        return self._len
 
     def measure_state(self, time):
 
-        if len(self.state) == self.__max_history:
-            self.state.pop(0)
-            self.measurement_times.pop(0)
+        # if len(self.state) == self._max_history:
+        #     self.state.pop(0)
+        #     self.measurement_times.pop(0)
 
         new_state = np.zeros((len(self.tracked_sections), 7))
         for i, section in enumerate(self.tracked_sections):
-            finger_joint = self.__leap_hand_str[int(self.left_hand_mode)] + \
+            finger_joint = self._leap_hand_str[int(self.left_hand_mode)] + \
                 self.name + "_" + section
             self.tf_buffer.can_transform(
                 self.base_frame, finger_joint, time, rospy.Duration(0.1))
@@ -173,15 +177,17 @@ class Leap_Finger_TF_Tracker():
                 self.base_frame, finger_joint, time, rospy.Duration(0.2))
             new_state[i, :] = np.array(transform_to_list(
                 leap_section_transform.transform))
-
+        self.jstates.append(self.jangles(new_state))
         self.state.append(new_state)
         self.measurement_times.append(time)
 
     def reset_history(self):
         if self.history_len > 0:
-            del self.state[:]
-            self.last_measure = []
-            self.__len = None
+            self.state.clear()
+            # print(self.name)
+            # del self.state[:]
+            # self.last_measure = []
+            self._len = None
 
     def to_pose(self):
         poses = []
@@ -217,6 +223,24 @@ class Leap_Finger_TF_Tracker():
             return self.state[-1][:, 3:]
         else:
             return None
+        
+    def jangles(self, state):
+        # print(self.name, state.shape)
+        angles = np.zeros(state.shape[0] - 1)
+        n1 = np.eye(3)[0] * state[1, :3]
+        n2 = np.eye(3)[2] * state[1, :3]
+        v0 = state[2, :3] - state[1, :3]
+        proj_v0 = v0 - (v0.dot(np.eye(3)[0]) * np.eye(3)[0])
+        proj_v0 /= np.linalg.norm(proj_v0)
+        angles[0] = np.arctan2(np.cross(proj_v0, n2).dot(np.eye(3)[0]), np.dot(proj_v0, n2))
+        for i in range(state.shape[0] - 2):
+            cur = state[i+1, :3] - state[i, :3]
+            nex = state[i+2, :3] - state[i+1, :3]
+            # if  np.linalg.norm(cur)==0 or np.linalg.norm(nex) ==0 :
+                # print(np.linalg.norm(cur), np.linalg.norm(nex))
+            angles[i+1] = np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
+        # print(self.name, np.degrees(angles))
+            
 
     @property
     def velocity(self):
@@ -260,6 +284,40 @@ class Leap_Finger_TF_Tracker():
             return '\n'.join(message)
         else:
             return 'Empty-Finger'
+        
+        
+class Leap_Thumb_TF_Tracker(Leap_Finger_TF_Tracker):
+    def __init__(self, name, tf_buffer, base_frame='right_leap_fingers', left_hand_mode=False, tracked_sections=None, history_len=3):
+        
+        super(Leap_Thumb_TF_Tracker, self).__init__(
+            name, tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)
+        
+    def jangles(self, state):
+        # print(self.name, state.shape)
+        angles = np.zeros(state.shape[0] - 1)
+        n1 = np.eye(3)[1]
+        proj_v0 = state[3, :3] - (state[3, :3].dot(np.eye(3)[2]) * np.eye(3)[2])
+        proj_v0 /= np.linalg.norm(proj_v0)
+        angles[0] = np.arctan2(np.cross(proj_v0, n1).dot(np.eye(3)[2]), np.dot(proj_v0, n1)) #np.arccos(n1.dot(n2))
+        
+        v1 = state[3, :3] - state[2, :3]
+        v1 /= np.linalg.norm(v1)
+        proj_v1 = v1 - (v1.dot(proj_v0) * proj_v0)
+        angles[1] = np.arctan2(np.linalg.norm(np.cross(np.eye(3)[2], proj_v1)), np.dot(np.eye(3)[2], proj_v1))
+        
+        # n2 = state[2, :3] - state[2+1, :3]
+        # n2 = np.cross(n2, np.asarray([0., 0., 1.]))
+        # n2 /= np.linalg.norm(n2)
+        # print(proj_v)
+        # print(n1, n2) 
+        # state[0, :3] = [0., 0., 0.]
+        for i in range(1, state.shape[0] - 2):
+            cur = state[i, :3] - state[i+1, :3]
+            nex = state[i+1, :3] - state[i+2, :3]
+            if np.linalg.norm(cur) == 0 or np.linalg.norm(nex) == 0 :
+                print(np.linalg.norm(cur), np.linalg.norm(nex))
+            angles[i+1] = np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
+        # print(self.name, np.degrees(angles))
 
 
 if __name__ == "__main__":
