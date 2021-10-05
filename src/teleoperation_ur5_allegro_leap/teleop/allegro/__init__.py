@@ -1,2 +1,2 @@
-from allegro_state import Allegro_State, Allegro_Finger_State
+from allegro_state import Allegro_Hand_State, Allegro_Finger_State, Allegro_Thumb_State
 from leap_state import Leap_Finger_TF_Tracker, Leap_Hand_TF_Tracker

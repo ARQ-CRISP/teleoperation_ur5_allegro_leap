@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 # from numpy.testing._private.utils import measure
 import rospy
+from collections import OrderedDict
 import numpy as np
 # from utils import list2ROSPose
 
@@ -8,21 +9,40 @@ import numpy as np
 # import tf2_geometry_msgs
 import tf2_ros
 from geometry_msgs.msg import Pose, PoseStamped
+from sensor_msgs.msg import JointState
 from allegro_utils import allegro_finger2linklist, finger_allegro_idx, allegro_fingers
 
 
-class Allegro_State(object):
-
+class Allegro_Hand_State(object):
+    
+    ALLEGRO_STATES_TOPIC = '/allegroHand_0/joint_states'
+    
+    _joint_names = ['joint_0', 'joint_1', 'joint_2', 'joint_3', 
+                    'joint_4', 'joint_5', 'joint_6', 'joint_7', 
+                    'joint_8', 'joint_9', 'joint_10', 'joint_11', 
+                    'joint_12', 'joint_13', 'joint_14', 'joint_15']
+    
     finger_names = allegro_fingers  # ['Index', 'Middle', 'Ring',  'Thumb']
     def __init__(self, tf_buffer, base_frame="hand_root", time=None):
 
         time = rospy.Time.now() if time is None else time
-        self.fingers = dict()
+        self.fingers = OrderedDict()
+        self.measured_jstates = np.asarray([0.0] * 16)
+        self._target_jstates = np.asarray([0.0] * 16) 
+        self.tf_buffer = tf_buffer
+        self._joint_listener = rospy.Subscriber(self.ALLEGRO_STATES_TOPIC, JointState, self.process_jstates)
+        for finger_name, value in finger_allegro_idx.items():
+            if value is not None:
+                if finger_name == 'Thumb':
+                    self.fingers[finger_name] = Allegro_Thumb_State(
+                        finger_name, self.tf_buffer)
+                else:
+                    self.fingers[finger_name] = Allegro_Finger_State(
+                        finger_name, self.tf_buffer)
 
-        for finger in self.finger_names:
-            self.fingers[finger] = Allegro_Finger_State(
-                finger, tf_buffer, time, base_frame)
-
+    def process_jstates(self, msg):
+        self.measured_jstates[:] = msg.position[:]
+        
     @property
     def last_movements(self):
         movements = []
@@ -62,6 +82,12 @@ class Allegro_State(object):
         # time = rospy.Time.now() if time is None else time
         for finger_name in self.finger_names:
             self.fingers[finger_name].update_measure(time)
+            
+    def __getitem__(self, fingername):
+        return self.fingers[fingername]
+    
+    def __iter__(self):
+        return iter(self.fingers)
 
 
 class Allegro_Finger_State(object):
@@ -236,7 +262,7 @@ if __name__ == "__main__":
     tf_listener = tf2_ros.TransformListener(tf_buffer)
 
     rospy.sleep(rospy.Duration(.5))
-    allegro_state = Allegro_State(tf_buffer)
+    allegro_state = Allegro_Hand_State(tf_buffer)
     # index_state = Allegro_Finger_State('Index', tf_buffer)
 
     pprint(allegro_state.ee_poses)

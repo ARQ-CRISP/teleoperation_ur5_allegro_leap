@@ -43,7 +43,7 @@ from teleoperation_ur5_allegro_leap.srv import Update_Finger_Measure, Update_Fin
 
 
 from .utils import pose2str, generate_tf, generate_pose_marker, list2ROSPose, ROSPose2list, STransform2SPose
-from .allegro_state import Allegro_Finger_State, Allegro_Thumb_State
+from .allegro_state import Allegro_Finger_State, Allegro_Thumb_State, Allegro_Hand_State
 from .allegro_utils import finger_allegro_idx, allegro_fingers, common_allegro_poses#, compute_target_state_relax, allegro_finger2linklist
 from .leap_state import Leap_Hand_TF_Tracker
 
@@ -91,15 +91,16 @@ class Leap_Teleop_Allegro():
         self.leap_topic = leap_topic
         rospy.sleep(2.0)
         self.init_allegro_tips = OrderedDict()
-        self.allegro_state = OrderedDict()
-        for finger_name, value in finger_allegro_idx.items():
-            if value is not None:
-                if finger_name == 'Thumb':
-                    self.allegro_state[finger_name] = Allegro_Thumb_State(
-                        finger_name, self.tf_buffer)
-                else:
-                    self.allegro_state[finger_name] = Allegro_Finger_State(
-                        finger_name, self.tf_buffer)
+        self.allegro_state = Allegro_Hand_State(tf_buffer)
+        # self.allegro_state = OrderedDict()
+        # for finger_name, value in finger_allegro_idx.items():
+        #     if value is not None:
+        #         if finger_name == 'Thumb':
+        #             self.allegro_state[finger_name] = Allegro_Thumb_State(
+        #                 finger_name, self.tf_buffer)
+        #         else:
+        #             self.allegro_state[finger_name] = Allegro_Finger_State(
+        #                 finger_name, self.tf_buffer)
                 
         self.leap_hand_tracker = Leap_Hand_TF_Tracker(
             self.tf_buffer,  # buffer recycling is good
@@ -352,6 +353,9 @@ class Leap_Teleop_Allegro():
             self.allegro_state[finger_name].ee_position = res.x.reshape(4, 3)[i, :]
         # print(res.x.reshape(4,3))
 
+    def update_joint_targets(self, time):
+        pass
+    
     def publish_targets(self, markers, time):
         target_state = dict()
         posegoal = PoseControlGoal()
@@ -367,17 +371,21 @@ class Leap_Teleop_Allegro():
                 self.update_position_velocity_targets(time, position_weight=0.9)
                 
             elif self.__control_type == Control_Type.joint_position:
-                self.update_position_velocity_targets(time, position_weight=0.9)
+                self.update_joint_targets(time)
 
             # self.correct_targets(eps=0.02)
 
             # posegoal.cartesian_pose = [None] * 4
             for finger_name, finger in self.leap_hand_tracker.fingers.items():
-                finger_pose = self.allegro_state[finger_name].to_PoseStamped(time).pose
-                self.gen_finger_marker(
-                    finger_pose, markers, finger_name)
-                posegoal.cartesian_pose.append(finger_pose)
-            
+                if self.__control_type not in []:
+                    finger_pose = self.allegro_state[finger_name].to_PoseStamped(time).pose
+                    self.gen_finger_marker(
+                        finger_pose, markers, finger_name)
+                    posegoal.cartesian_pose.append(finger_pose)
+                else:
+                    #TODO edit for joint control
+                    finger_pose = self.allegro_state[finger_name].to_PoseStamped(time).pose
+                    posegoal.joint_pose
 
         # print(self.allegro_state)
         if not self.__calibration_mode:
