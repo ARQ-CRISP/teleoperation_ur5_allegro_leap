@@ -250,8 +250,10 @@ class Leap_Finger_TF_Tracker(object):
             nex = state[i+2, :3] - state[i+1, :3]
             # if  np.linalg.norm(cur)==0 or np.linalg.norm(nex) ==0 :
                 # print(np.linalg.norm(cur), np.linalg.norm(nex))
-            angles[i+1] = np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
+            
+            angles[i+1] = np.arctan2(np.cross(cur, nex).dot(np.eye(3)[1]), np.dot(cur, nex)) # np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
         # print(self.name, np.degrees(angles))
+        # angles[1] = angles[1] - np.pi/6 
         return angles
             
 
@@ -311,20 +313,24 @@ class Leap_Thumb_TF_Tracker(Leap_Finger_TF_Tracker):
         n1 = np.eye(3)[1]
         proj_v0 = state[3, :3] - (state[3, :3].dot(np.eye(3)[2]) * np.eye(3)[2])
         proj_v0 /= np.linalg.norm(proj_v0)
-        angles[0] = np.arctan2(np.cross(proj_v0, n1).dot(np.eye(3)[2]), np.dot(proj_v0, n1)) #np.arccos(n1.dot(n2))
+        angles[0] = np.pi/20 + np.arctan2(np.cross(proj_v0, n1).dot(np.eye(3)[2]), np.dot(proj_v0, n1)) #np.arccos(n1.dot(n2))
         
-        v1 = state[3, :3] - state[2, :3]
+        v1 = state[2, :3] - state[1, :3]
         v1 /= np.linalg.norm(v1)
         proj_v1 = v1 - (v1.dot(proj_v0) * proj_v0)
         angles[1] = np.arctan2(np.linalg.norm(np.cross(np.eye(3)[2], proj_v1)), np.dot(np.eye(3)[2], proj_v1))
         
+        v2 = state[3, :3] - state[2, :3]
+        p = np.cross(np.eye(3)[2], state[2, :3] / np.linalg.norm(state[2, :3]))
+        proj_v2_p = v2 - (v2.dot(p) * p)
+        angles[2] = np.pi/3 - 1.2 * np.arctan2(np.linalg.norm(np.cross(proj_v2_p, np.eye(3)[2])), np.dot(proj_v2_p, np.eye(3)[2]))
         # n2 = state[2, :3] - state[2+1, :3]
         # n2 = np.cross(n2, np.asarray([0., 0., 1.]))
         # n2 /= np.linalg.norm(n2)
         # print(proj_v)
         # print(n1, n2) 
         # state[0, :3] = [0., 0., 0.]
-        for i in range(1, state.shape[0] - 2):
+        for i in range(2, state.shape[0] - 2):
             cur = state[i, :3] - state[i+1, :3]
             nex = state[i+1, :3] - state[i+2, :3]
             if np.linalg.norm(cur) == 0 or np.linalg.norm(nex) == 0 :
