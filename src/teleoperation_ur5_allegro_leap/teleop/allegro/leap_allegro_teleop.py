@@ -320,8 +320,9 @@ class Leap_Teleop_Allegro():
             # print(self.allegro_state[finger_name].ee_pose, target_pose[0])
             self.allegro_state[finger_name].goto(self.allegro_state[finger_name].base_position+target_pose[0], target_pose[1])
     
-    def update_joint_position_targets(self):
-        pass
+    # def update_joint_position_targets(self, time):
+    #     # self.leap_hand_tracker.joint_position
+    #     self.allegro_state.set_target_jstate_positions(self.leap_hand_tracker.joint_position)
     
     def correct_targets(self, eps=0.01):
         def objfunc(x, hand_dists):
@@ -353,12 +354,12 @@ class Leap_Teleop_Allegro():
             self.allegro_state[finger_name].ee_position = res.x.reshape(4, 3)[i, :]
         # print(res.x.reshape(4,3))
 
-    def update_joint_targets(self, time):
-        pass
+    
     
     def publish_targets(self, markers, time):
         target_state = dict()
         posegoal = PoseControlGoal()
+        # print('history_len ', self.leap_hand_tracker.history_len, self.__control_type)
         if self.leap_hand_tracker.history_len > 0:
             if self.__control_type == Control_Type.position:
                 self.update_position_targets(time)
@@ -371,27 +372,30 @@ class Leap_Teleop_Allegro():
                 self.update_position_velocity_targets(time, position_weight=0.9)
                 
             elif self.__control_type == Control_Type.joint_position:
-                self.update_joint_targets(time)
+                posegoal.joint_pose = self.leap_hand_tracker.joint_position
+                # print(posegoal.joint_pose)
+                self.__pose_action_client.send_goal(posegoal, feedback_cb=self.on_pose_goal_feedback)
+                # self.update_joint_position_targets(time)
+                # finger_pose = self.allegro_state.to_PoseStamped(time).pose
+                # posegoal.joint_pose
+                # self.__pose_action_client.send_goal(posegoal, feedback_cb=self.on_pose_goal_feedback)
 
             # self.correct_targets(eps=0.02)
 
             # posegoal.cartesian_pose = [None] * 4
-            for finger_name, finger in self.leap_hand_tracker.fingers.items():
-                if self.__control_type not in []:
-                    finger_pose = self.allegro_state[finger_name].to_PoseStamped(time).pose
-                    self.gen_finger_marker(
-                        finger_pose, markers, finger_name)
-                    posegoal.cartesian_pose.append(finger_pose)
-                else:
-                    #TODO edit for joint control
-                    finger_pose = self.allegro_state[finger_name].to_PoseStamped(time).pose
-                    posegoal.joint_pose
+            if self.__control_type not in [Control_Type.joint_position]:
+                for finger_name, finger in self.leap_hand_tracker.fingers.items():
+                        finger_pose = self.allegro_state[finger_name].to_PoseStamped(time).pose
+                        self.gen_finger_marker(
+                            finger_pose, markers, finger_name)
+                        posegoal.cartesian_pose.append(finger_pose)
+                if not self.__calibration_mode:
+                    self.__pose_action_client.send_goal(posegoal, feedback_cb=self.on_pose_goal_feedback)
+                    self.advertise_targets(target_state)
+                self.marker_pub.publish(markers)
+                
 
         # print(self.allegro_state)
-        if not self.__calibration_mode:
-            self.__pose_action_client.send_goal(posegoal, feedback_cb=self.on_pose_goal_feedback)
-            self.advertise_targets(target_state)
-        self.marker_pub.publish(markers)
 
     def on_pose_goal_feedback(self, feedback):
         """Callback for the feedback message in the PoseControlAction

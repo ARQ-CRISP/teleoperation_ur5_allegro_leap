@@ -15,6 +15,7 @@ import tf2_ros
 from teleoperation_ur5_allegro_leap import Leap_Teleop_Allegro
 from teleoperation_ur5_allegro_leap import EventCatcher, Calibration_GUI, Movegroup_GUI, Experiments_GUI
 from teleoperation_ur5_allegro_leap.teleop.allegro.calibration import listoffingers_to_dict, set_calibration_pose_param, get_max_pose_index
+from teleoperation_ur5_allegro_leap.msg import Control_Type 
 # from teleoperation_ur5_allegro_leap.teleop.app.calibration_gui import Calibration_GUI
 # from teleoperation_ur5_allegro_leap.teleop.app.ur5_moveit_gui import Movegroup_GUI
 # from teleoperation_ur5_allegro_leap import Cali
@@ -37,7 +38,9 @@ if __name__ == "__main__":
     # keyboard = Controller()
 
     allegro_teleop = Leap_Teleop_Allegro(
-        tf_buffer, leap_topic, lefthand_mode, scale=[1.6, 1.6, 1.6, 1.6])
+        tf_buffer, leap_topic, lefthand_mode,
+        control_type=Control_Type.joint_position,
+        scale=[1.6, 1.6, 1.6, 1.6])
     allegro_teleop.goto_pose_by_name('relax')
     allegro_teleop
     rospy.on_shutdown(allegro_teleop.on_shutdown)

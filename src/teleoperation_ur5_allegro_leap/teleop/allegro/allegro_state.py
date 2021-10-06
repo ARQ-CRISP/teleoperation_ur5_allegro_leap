@@ -43,6 +43,9 @@ class Allegro_Hand_State(object):
     def process_jstates(self, msg):
         self.measured_jstates[:] = msg.position[:]
         
+    def set_target_jstate_positions(self, states):
+        self._target_jstates = states
+                
     @property
     def last_movements(self):
         movements = []
@@ -172,6 +175,9 @@ class Allegro_Finger_State(object):
             return stamped
         else:
             return stamped.pose
+        
+    def to_JointState(self):
+        data = JointState()
 
     def translate_by(self, translation, time=None):
         if translation is not np.array:

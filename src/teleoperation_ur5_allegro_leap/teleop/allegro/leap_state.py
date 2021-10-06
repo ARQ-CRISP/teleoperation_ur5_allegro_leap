@@ -36,10 +36,11 @@ class Leap_Hand_TF_Tracker():
         # self.last_measurement_time = time
         self.tracked_fingers = tracked_fingers if tracked_fingers is not None else self.FINGER_ORDER
         self.fingers = OrderedDict([ #setting the fingers as the list of tracked fingers (Ordered dict, allows to get the items in the right order)
-             (finger, Leap_Thumb_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections)) if finger == 'Thumb' \
-                else (finger, Leap_Finger_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections)) \
+             (finger, Leap_Thumb_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)) if finger == 'Thumb' \
+                else (finger, Leap_Finger_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)) \
                 for finger in self.tracked_fingers])
         self.left_hand_mode = left_hand_mode
+        self.max_hist = history_len
 
         # if measure_on_init:
         # self.measure_state(time)
@@ -85,36 +86,47 @@ class Leap_Hand_TF_Tracker():
 
     @property
     def position(self):
-        if len(self.history_len) > 0:
+        if (self.history_len) > 0:
             return OrderedDict([(name, finger.position) for name, finger in self.fingers.items()])
         else:
             return None
 
     @property
     def orientation(self):
-        if len(self.state) > 0:
+        if (self.history_len) > 0:
             return OrderedDict([(name, finger.orientation) for name, finger in self.fingers.items()])
         else:
             return None
 
     @property
     def velocity(self):
-        if len(self.state) > 1:
+        if (self.history_len) > 1:
             return OrderedDict([(name, finger.velocity) for name, finger in self.fingers.items()])
         else:
             return None
 
     @property
     def velocity_normalised(self):
-        if len(self.state) > 1:
+        if (self.history_len) > 1:
             return OrderedDict([(name, finger.velocity) for name, finger in self.fingers.items()])
         else:
             return None
 
     @property
     def pose(self):
-        if len(self.state) > 0:
+        if (self.history_len) > 0:
             return self.state[-1]
+        else:
+            return None
+        
+    @property
+    def joint_position(self):
+        if (self.history_len) > 0:
+            jstates = np.zeros(4*4)
+            for i, finger in enumerate(self.tracked_fingers):
+                print(finger, self.fingers[finger].joint_position[-1])
+                jstates[i*4:i*4+4] = self.fingers[finger].joint_position[-1]
+            return jstates
         else:
             return None
 
@@ -137,10 +149,10 @@ class Leap_Finger_TF_Tracker(object):
             self.tracked_sections = [self._section2str[i]
                                      for i in tracked_sections]
 
-        self.measurement_times = []
+        self.measurement_times = deque([], history_len)
         # self.state = []
         self.state = deque([], history_len)
-        self.jstates = deque([], history_len)
+        self.joint_position = deque([], history_len)
         # if measure_on_init:
         # self.measure_state(time)
 
@@ -177,7 +189,7 @@ class Leap_Finger_TF_Tracker(object):
                 self.base_frame, finger_joint, time, rospy.Duration(0.2))
             new_state[i, :] = np.array(transform_to_list(
                 leap_section_transform.transform))
-        self.jstates.append(self.jangles(new_state))
+        self.joint_position.append(self.jangles(new_state))
         self.state.append(new_state)
         self.measurement_times.append(time)
 
@@ -240,6 +252,7 @@ class Leap_Finger_TF_Tracker(object):
                 # print(np.linalg.norm(cur), np.linalg.norm(nex))
             angles[i+1] = np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
         # print(self.name, np.degrees(angles))
+        return angles
             
 
     @property
@@ -318,6 +331,7 @@ class Leap_Thumb_TF_Tracker(Leap_Finger_TF_Tracker):
                 print(np.linalg.norm(cur), np.linalg.norm(nex))
             angles[i+1] = np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
         # print(self.name, np.degrees(angles))
+        return angles
 
 
 if __name__ == "__main__":
