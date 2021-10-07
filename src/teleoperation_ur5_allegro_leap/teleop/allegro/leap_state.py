@@ -308,6 +308,7 @@ class Leap_Thumb_TF_Tracker(Leap_Finger_TF_Tracker):
             name, tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)
         
     def jangles(self, state):
+        def sigmoid(x): return 1/(1+np.exp(-x))
         # print(self.name, state.shape)
         angles = np.zeros(state.shape[0] - 1)
         n1 = np.eye(3)[1]
@@ -315,11 +316,11 @@ class Leap_Thumb_TF_Tracker(Leap_Finger_TF_Tracker):
         proj_v0 /= np.linalg.norm(proj_v0)
         angles[0] = np.pi/20 + np.arctan2(np.cross(proj_v0, n1).dot(np.eye(3)[2]), np.dot(proj_v0, n1)) #np.arccos(n1.dot(n2))
         
-        v1 = state[2, :3] - state[1, :3]
-        v1 /= np.linalg.norm(v1)
-        proj_v1 = v1 - (v1.dot(proj_v0) * proj_v0)
-        angles[1] = np.arctan2(np.linalg.norm(np.cross(np.eye(3)[2], proj_v1)), np.dot(np.eye(3)[2], proj_v1))
-        
+        # v1 = state[2, :3] - state[1, :3]
+        # v1 /= np.linalg.norm(v1)
+        # proj_v1 = v1 - (v1.dot(proj_v0) * proj_v0)
+        # angles[1] = np.arctan2(np.linalg.norm(np.cross(np.eye(3)[2], proj_v1)), np.dot(np.eye(3)[2], proj_v1))
+
         v2 = state[3, :3] - state[2, :3]
         p = np.cross(np.eye(3)[2], state[2, :3] / np.linalg.norm(state[2, :3]))
         proj_v2_p = v2 - (v2.dot(p) * p)
@@ -337,6 +338,9 @@ class Leap_Thumb_TF_Tracker(Leap_Finger_TF_Tracker):
                 print(np.linalg.norm(cur), np.linalg.norm(nex))
             angles[i+1] = np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
         # print(self.name, np.degrees(angles))
+        angles[0] = sigmoid(angles[0]*1.8 - np.pi/4) * 4*np.pi/6
+        angles[1] = np.tanh(angles[0] - np.pi/2) * np.pi/6
+        angles[2] = sigmoid(angles[2] * 3. - np.pi/2) * 4 * np.pi/6
         return angles
 
 

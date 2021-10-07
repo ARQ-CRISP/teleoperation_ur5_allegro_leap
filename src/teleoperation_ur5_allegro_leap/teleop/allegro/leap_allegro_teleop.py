@@ -268,7 +268,7 @@ class Leap_Teleop_Allegro():
         c = 0.05
         for finger_name, finger in self.leap_hand_tracker.fingers.items():
             if finger.name is 'Thumb':
-                scale = 1.
+                scale = 0.8
             else:
                 scale = 1.
             target_pose = self.get_position_target(finger, scale)

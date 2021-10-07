@@ -40,6 +40,7 @@ if __name__ == "__main__":
     allegro_teleop = Leap_Teleop_Allegro(
         tf_buffer, leap_topic, lefthand_mode,
         control_type=Control_Type.joint_position,
+        # control_type=Control_Type.position_velocity,
         scale=[1.6, 1.6, 1.6, 1.6])
     allegro_teleop.goto_pose_by_name('relax')
     allegro_teleop
