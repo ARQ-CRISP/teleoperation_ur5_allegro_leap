@@ -35,15 +35,15 @@ class Leap_Hand_TF_Tracker():
         self.tf_buffer = tf_buffer
         # self.last_measurement_time = time
         self.tracked_fingers = tracked_fingers if tracked_fingers is not None else self.FINGER_ORDER
-        self.fingers = OrderedDict([ #setting the fingers as the list of tracked fingers (Ordered dict, allows to get the items in the right order)
-             (finger, Leap_Thumb_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)) if finger == 'Thumb' \
-                else (finger, Leap_Finger_TF_Tracker(finger, tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)) \
-                for finger in self.tracked_fingers])
+        #setting the fingers as the list of tracked fingers (Ordered dict, allows to get the items in the right order)
+        self.fingers = OrderedDict(
+            [('Index', Leap_Index_TF_Tracker(tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)),
+             ('Middle', Leap_Middle_TF_Tracker(tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)),
+             ('Ring', Leap_Ring_TF_Tracker(tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)),
+             ('Thumb', Leap_Thumb_TF_Tracker(tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len))
+             ])
         self.left_hand_mode = left_hand_mode
         self.max_hist = history_len
-
-        # if measure_on_init:
-        # self.measure_state(time)
 
     def measure_state(self, time):
         for finger_name, finger in self.fingers.items():
@@ -237,25 +237,7 @@ class Leap_Finger_TF_Tracker(object):
             return None
         
     def jangles(self, state):
-        # print(self.name, state.shape)
-        angles = np.zeros(state.shape[0] - 1)
-        n1 = np.eye(3)[0] * state[1, :3]
-        n2 = np.eye(3)[2] * state[1, :3]
-        v0 = state[2, :3] - state[1, :3]
-        proj_v0 = v0 - (v0.dot(np.eye(3)[0]) * np.eye(3)[0])
-        proj_v0 /= np.linalg.norm(proj_v0)
-        angles[0] = np.arctan2(np.cross(proj_v0, n2).dot(np.eye(3)[0]), np.dot(proj_v0, n2))
-        for i in range(state.shape[0] - 2):
-            cur = state[i+1, :3] - state[i, :3]
-            nex = state[i+2, :3] - state[i+1, :3]
-            # if  np.linalg.norm(cur)==0 or np.linalg.norm(nex) ==0 :
-                # print(np.linalg.norm(cur), np.linalg.norm(nex))
-            
-            angles[i+1] = np.arctan2(np.cross(cur, nex).dot(np.eye(3)[1]), np.dot(cur, nex)) # np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
-        # print(self.name, np.degrees(angles))
-        # angles[1] = angles[1] - np.pi/6 
-        return angles
-            
+        raise NotImplementedError
 
     @property
     def velocity(self):
@@ -302,10 +284,10 @@ class Leap_Finger_TF_Tracker(object):
         
         
 class Leap_Thumb_TF_Tracker(Leap_Finger_TF_Tracker):
-    def __init__(self, name, tf_buffer, base_frame='right_leap_fingers', left_hand_mode=False, tracked_sections=None, history_len=3):
+    def __init__(self, tf_buffer, base_frame='right_leap_fingers', left_hand_mode=False, tracked_sections=None, history_len=3):
         
         super(Leap_Thumb_TF_Tracker, self).__init__(
-            name, tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)
+            'Thumb', tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)
         
     def jangles(self, state):
         def sigmoid(x): return 1/(1+np.exp(-x))
@@ -314,23 +296,12 @@ class Leap_Thumb_TF_Tracker(Leap_Finger_TF_Tracker):
         n1 = np.eye(3)[1]
         proj_v0 = state[3, :3] - (state[3, :3].dot(np.eye(3)[2]) * np.eye(3)[2])
         proj_v0 /= np.linalg.norm(proj_v0)
-        angles[0] = np.pi/20 + np.arctan2(np.cross(proj_v0, n1).dot(np.eye(3)[2]), np.dot(proj_v0, n1)) #np.arccos(n1.dot(n2))
-        
-        # v1 = state[2, :3] - state[1, :3]
-        # v1 /= np.linalg.norm(v1)
-        # proj_v1 = v1 - (v1.dot(proj_v0) * proj_v0)
-        # angles[1] = np.arctan2(np.linalg.norm(np.cross(np.eye(3)[2], proj_v1)), np.dot(np.eye(3)[2], proj_v1))
+        angles[0] = -np.pi/20 + np.arctan2(np.cross(proj_v0, n1).dot(np.eye(3)[2]), np.dot(proj_v0, n1)) 
 
         v2 = state[3, :3] - state[2, :3]
         p = np.cross(np.eye(3)[2], state[2, :3] / np.linalg.norm(state[2, :3]))
         proj_v2_p = v2 - (v2.dot(p) * p)
         angles[2] = np.pi/3 - 1.2 * np.arctan2(np.linalg.norm(np.cross(proj_v2_p, np.eye(3)[2])), np.dot(proj_v2_p, np.eye(3)[2]))
-        # n2 = state[2, :3] - state[2+1, :3]
-        # n2 = np.cross(n2, np.asarray([0., 0., 1.]))
-        # n2 /= np.linalg.norm(n2)
-        # print(proj_v)
-        # print(n1, n2) 
-        # state[0, :3] = [0., 0., 0.]
         for i in range(2, state.shape[0] - 2):
             cur = state[i, :3] - state[i+1, :3]
             nex = state[i+1, :3] - state[i+2, :3]
@@ -342,6 +313,92 @@ class Leap_Thumb_TF_Tracker(Leap_Finger_TF_Tracker):
         angles[1] = np.tanh(angles[0] - np.pi/2) * np.pi/6
         angles[2] = sigmoid(angles[2] * 3. - np.pi/2) * 4 * np.pi/6
         return angles
+
+
+class Leap_Index_TF_Tracker(Leap_Finger_TF_Tracker):
+    def __init__(self, tf_buffer, base_frame='right_leap_fingers', left_hand_mode=False, tracked_sections=None, history_len=3):
+        
+        super(Leap_Index_TF_Tracker, self).__init__(
+            'Index', tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)
+        
+    def jangles(self, state):
+        def sigmoid(x): return 1/(1+np.exp(-x))
+        # print(self.name, state.shape)
+        angles = np.zeros(state.shape[0] - 1)
+        n1 = np.eye(3)[0] * state[1, :3]
+        n2 = np.eye(3)[2] * state[1, :3]
+        v0 = state[2, :3] - state[1, :3]
+        proj_v0 = v0 - (v0.dot(np.eye(3)[0]) * np.eye(3)[0])
+        proj_v0 /= np.linalg.norm(proj_v0)
+        angles[0] = np.arctan2(np.cross(proj_v0, n2).dot(np.eye(3)[0]), np.dot(proj_v0, n2))
+        angles[0] = np.tanh(angles[0]) * np.pi / 6.
+        for i in range(state.shape[0] - 2):
+            cur = state[i+1, :3] - state[i, :3]
+            nex = state[i+2, :3] - state[i+1, :3]
+            # if  np.linalg.norm(cur)==0 or np.linalg.norm(nex) ==0 :
+                # print(np.linalg.norm(cur), np.linalg.norm(nex))
+            
+            angles[i+1] = np.arctan2(np.cross(cur, nex).dot(np.eye(3)[1]), np.dot(cur, nex)) # np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
+        # print(self.name, np.degrees(angles))
+        # angles[1] = angles[1] - np.pi/6 
+        return angles
+    
+class Leap_Middle_TF_Tracker(Leap_Finger_TF_Tracker):
+    def __init__(self, tf_buffer, base_frame='right_leap_fingers', left_hand_mode=False, tracked_sections=None, history_len=3):
+        
+        super(Leap_Middle_TF_Tracker, self).__init__(
+            'Middle', tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)
+        
+    def jangles(self, state):
+        def sigmoid(x): return 1/(1+np.exp(-x))
+        # print(self.name, state.shape)
+        angles = np.zeros(state.shape[0] - 1)
+        n1 = np.eye(3)[0] * state[1, :3]
+        n2 = np.eye(3)[2] * state[1, :3]
+        v0 = state[2, :3] - state[1, :3]
+        proj_v0 = v0 - (v0.dot(np.eye(3)[0]) * np.eye(3)[0])
+        proj_v0 /= np.linalg.norm(proj_v0)
+        angles[0] = np.arctan2(np.cross(proj_v0, n2).dot(np.eye(3)[0]), np.dot(proj_v0, n2))
+        angles[0] = np.tanh(angles[0]) * np.pi / 10.
+        for i in range(state.shape[0] - 2):
+            cur = state[i+1, :3] - state[i, :3]
+            nex = state[i+2, :3] - state[i+1, :3]
+            # if  np.linalg.norm(cur)==0 or np.linalg.norm(nex) ==0 :
+                # print(np.linalg.norm(cur), np.linalg.norm(nex))
+            
+            angles[i+1] = np.arctan2(np.cross(cur, nex).dot(np.eye(3)[1]), np.dot(cur, nex)) # np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
+        # print(self.name, np.degrees(angles))
+        # angles[1] = angles[1] - np.pi/6 
+        return angles
+
+class Leap_Ring_TF_Tracker(Leap_Finger_TF_Tracker):
+    def __init__(self, tf_buffer, base_frame='right_leap_fingers', left_hand_mode=False, tracked_sections=None, history_len=3):
+        
+        super(Leap_Ring_TF_Tracker, self).__init__(
+            'Ring', tf_buffer, base_frame, left_hand_mode, tracked_sections, history_len)
+        
+    def jangles(self, state):
+        def sigmoid(x): return 1/(1+np.exp(-x))
+        # print(self.name, state.shape)
+        angles = np.zeros(state.shape[0] - 1)
+        n1 = np.eye(3)[0] * state[1, :3]
+        n2 = np.eye(3)[2] * state[1, :3]
+        v0 = state[2, :3] - state[1, :3]
+        proj_v0 = v0 - (v0.dot(np.eye(3)[0]) * np.eye(3)[0])
+        proj_v0 /= np.linalg.norm(proj_v0)
+        angles[0] = np.arctan2(np.cross(proj_v0, n2).dot(np.eye(3)[0]), np.dot(proj_v0, n2))
+        angles[0] = np.tanh(angles[0]) * np.pi / 6.
+        for i in range(state.shape[0] - 2):
+            cur = state[i+1, :3] - state[i, :3]
+            nex = state[i+2, :3] - state[i+1, :3]
+            # if  np.linalg.norm(cur)==0 or np.linalg.norm(nex) ==0 :
+                # print(np.linalg.norm(cur), np.linalg.norm(nex))
+            
+            angles[i+1] = np.arctan2(np.cross(cur, nex).dot(np.eye(3)[1]), np.dot(cur, nex)) # np.arccos(np.dot(cur, nex) / np.linalg.norm(cur) / np.linalg.norm(nex))
+        # print(self.name, np.degrees(angles))
+        # angles[1] = angles[1] - np.pi/6 
+        return angles
+
 
 
 if __name__ == "__main__":
