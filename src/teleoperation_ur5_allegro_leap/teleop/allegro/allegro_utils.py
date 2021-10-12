@@ -1,9 +1,9 @@
 import rospy
 from geometry_msgs.msg import Pose
+from collections import OrderedDict
 
-
-finger_allegro_idx = {'Index': 0, 'Middle': 1,
-                          'Ring': 2, 'Pinky': None, 'Thumb': 3}
+finger_allegro_idx = OrderedDict([('Index', 0), ('Middle', 1),
+                          ('Ring', 2), ('Pinky', None), ('Thumb', 3)])
 
 # in this way, setting the above, changes the order of the fingers
 allegro_fingers = [item[0] for item in sorted(finger_allegro_idx.items(), key=lambda x: x[1]) if item[1] is not None] #['Index', 'Middle', 'Ring',  'Thumb']
