@@ -81,8 +81,8 @@ class Leap_Teleop_UR5():
         self.__leap_listener = rospy.Subscriber(self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
         self.marker_pub = rospy.Publisher(self.marker_topic, Marker, queue_size=1)
 
-        self.position_buffer = deque(maxlen=10)
-        self.orientation_buffer = deque(maxlen=10)
+        self.position_buffer = deque(maxlen=15)
+        self.orientation_buffer = deque(maxlen=15)
         
         self.__tracking_toggler = rospy.Service(self.toggle_tracking_srv, Toggle_Tracking,
                                                 lambda msg: Toggle_TrackingResponse( 
@@ -161,11 +161,12 @@ class Leap_Teleop_UR5():
         self.orientation_buffer.append(np.asarray(quat))
 
         new_pos = np.asarray(self.position_buffer).mean(axis=0)
-        quats = np.asarray(self.orientation_buffer)
+        new_quat = np.asarray(self.orientation_buffer).mean(axis=0) # Nlerp Approximation
+        new_quat /= np.linalg.norm(new_quat)
         # print(quats.dot(quats.T).shape)
-        val, vec = np.linalg.eig(quats.T.dot(quats))
+        # val, vec = np.linalg.eig(quats.T.dot(quats))
         # new_quat = quats.mean(axis=0)#vec[np.argmin(val)]
-        new_quat = vec[np.argmax(val)]
+        # new_quat = vec[np.argmax(val)]
         return new_pos, new_quat
 
     def go_to_pose(self, frame):
@@ -193,7 +194,9 @@ class Leap_Teleop_UR5():
                 
                 rot_dist = 1 - np.asarray(list(self.target.M.GetQuaternion())).dot(list(self.target.M.GetQuaternion()))
                 pos_dist = np.linalg.norm(np.asarray(list(self.previous_tf.p)) - np.asarray(list(wrist_f.p)))
-                                          
+                
+                filtered_target = self.filter_pose(np.asarray(list(self.target.p)), np.asarray(list(self.target.M.GetQuaternion())))
+                self.target = Frame(Rotation.Quaternion(*filtered_target[1]), Vector(*filtered_target[0]))
                 if (rot_dist > 1e-3) or (pos_dist > 1e-5):
                     stamped_target = PoseStamped()
                     stamped_target.header.frame_id = 'world'
