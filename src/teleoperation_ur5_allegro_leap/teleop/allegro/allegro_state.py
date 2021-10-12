@@ -11,6 +11,7 @@ import tf2_ros
 from geometry_msgs.msg import Pose, PoseStamped
 from sensor_msgs.msg import JointState
 from allegro_utils import allegro_finger2linklist, finger_allegro_idx, allegro_fingers
+from allegro_fk import AllegroKDL
 
 
 class Allegro_Hand_State(object):
@@ -39,6 +40,7 @@ class Allegro_Hand_State(object):
                 else:
                     self.fingers[finger_name] = Allegro_Finger_State(
                         finger_name, self.tf_buffer)
+        self.AKDL = AllegroKDL()
 
     def process_jstates(self, msg):
         self.measured_jstates[:] = msg.position[:]
