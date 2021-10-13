@@ -22,9 +22,6 @@ class UR5KDL(object):
         
         (status, self.tree) = kdl_parser.treeFromParam(robot_description_param)
         self.bounds = [(-np.pi, np.pi) for i in range(5)]
-        # self.bounds[3*4 + 1] = (-np.pi/8, np.pi/8)
-        # for i in range(3):
-        #     self.bounds[i*4] = (-np.pi/8, np.pi/8)
         self.chain = self.tree.getChain("world", self.wrist_frame)
         
         self._fk_solver = kdl.ChainFkSolverPos_recursive(self.chain) 
@@ -48,7 +45,7 @@ class UR5KDL(object):
             
         marker = Marker(pose=toMsg(ee_pose), type=Marker.ARROW, ns='/ur_target')
         marker.header.frame_id = frame_id
-        marker.scale.x, marker.scale.y, marker.scale.z = 1e-2, 3e-2, 1e-2
+        marker.scale.x, marker.scale.y, marker.scale.z = 1e-2, 1e-2, 3e-2
         marker.color.r, marker.color.g, marker.color.b = 1.0, 0.0, 0.3
         marker.color.a = 1.0
         
