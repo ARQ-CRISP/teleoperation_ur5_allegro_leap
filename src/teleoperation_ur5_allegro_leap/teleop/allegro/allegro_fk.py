@@ -4,11 +4,13 @@ from __future__ import print_function, division, absolute_import
 import numpy as np
 import kdl_parser_py.urdf as kdl_parser
 import PyKDL as kdl
+from tf_conversions import fromTf, toMsg
 from collections import OrderedDict
 from scipy.optimize import minimize
 
 import rospy
 from sensor_msgs.msg import JointState
+from visualization_msgs.msg import MarkerArray, Marker
 
 from .allegro_utils import allegro_finger2linklist, finger_allegro_idx, allegro_fingers
 
@@ -119,18 +121,32 @@ class AllegroKDL(object):
         V[3:5] = pos[[0, 2]] - pos[1]
         V[5] = pos[0] - pos[1]
         V[6:] = pos
-        # S2 = np.concatenate([pos[0:1] - pos[1],
-        #                      pos[2:3] - pos[1], 
-        #                      pos[0:1] - pos[2]], axis=0)
         
-        return V #np.concatenate([S1, S2], axis=0)        
+        return V 
+    
+    def gen_marker_array(self, ee_poses, frame_id='hand_root'):
+        markers = MarkerArray()
+        markers.markers = [Marker(pose=toMsg(ee_poses[i]), type=Marker.SPHERE) for i in range(4)]
+        for i, finger in enumerate(self.finger2tip_link):
+            markers.markers[i].header.frame_id = frame_id
+            markers.markers[i].scale.x = markers.markers[i].scale.y = markers.markers[i].scale.z = 0.01
+            markers.markers[i].color.r = 1. - 0.2 * i
+            markers.markers[i].color.g = 0. + 0.2 * i
+            markers.markers[i].color.a = 1.
+            markers.markers[i].ns = '/' + finger
+        
+        return markers
         
 
 if __name__ == '__main__':
+    theta = [
+        0.46577540414289814, -0.2890512247250011, 0.12271067718673644, 0.22420640578266968,
+        0.46021009223337667, -0.2960440464471773, 0.2982590869972696, 1.084437425534356,
+        -0.4411578498505645, -0.3160463959402287, 0.1716352750269975, 0.9928483830978961, 
+        0.6074569887040825, 0.9399242057906939, 1.1993804950421847, 1.282356382497728]
     from pprint import pprint
     rospy.init_node('test_fk')
     AKDL = AllegroKDL()
-    theta = [0.46577540414289814, -0.2890512247250011, 0.12271067718673644, 0.22420640578266968, 0.46021009223337667, -0.2960440464471773, 0.2982590869972696, 1.084437425534356, -0.4411578498505645, -0.3160463959402287, 0.1716352750269975, 0.9928483830978961, 0.6074569887040825, 0.9399242057906939, 1.1993804950421847, 1.282356382497728]
     res, poses = AKDL.solve(theta)
     
     pprint([pose.p for pose in poses])

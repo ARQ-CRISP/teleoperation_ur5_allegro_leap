@@ -381,15 +381,7 @@ class Leap_Teleop_Allegro():
                 x = self.allegro_state.AKDL.optimize(x, hand_pos).x
                 posegoal.joint_pose = x
                 _, fingertip_pose = self.allegro_state.AKDL.solve(x)
-                markers = MarkerArray()
-                markers.markers = [Marker(pose=list2ROSPose(list(fingertip_pose[i].p), [0,0,0,1]), type=Marker.SPHERE) for i in range(4)]
-                for i in range(4):
-                    markers.markers[i].header.frame_id = 'hand_root'
-                    markers.markers[i].scale.x = markers.markers[i].scale.y = markers.markers[i].scale.z = 0.01
-                    markers.markers[i].color.r = 1. - 0.2 * i
-                    markers.markers[i].color.g = 0. + 0.2 * i
-                    markers.markers[i].color.a = 1.
-                    markers.markers[i].ns = '/' + str(i)
+                markers = self.allegro_state.AKDL.gen_marker_array(fingertip_pose)
                     
                 self.marker_pub.publish(markers)
                 
