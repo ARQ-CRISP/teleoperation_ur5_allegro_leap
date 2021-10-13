@@ -25,7 +25,7 @@ from relaxed_ik.msg import EEPoseGoals, JointAngles
 from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 from teleoperation_ur5_allegro_leap.teleop.ur5 import JointMovementManager
 from teleoperation_ur5_allegro_leap.teleop.ur5.arm_teleop_input import Arm_Teleop_Input, Combined_Arm_Teleop_Input
-
+from teleoperation_ur5_allegro_leap.teleop.ur5.ur5_fk import UR5KDL
 
 class Relaxed_UR5_Connection():
     
@@ -42,6 +42,7 @@ class Relaxed_UR5_Connection():
     
     max_angle = np.pi/4.
     min_angle = 1e-4
+
     
     def __init__(self, init_state=[0., 0., 0., 0., 0., 0.],
                 movegroup='ur5_arm', sim=True, debug_mode=False):
@@ -64,9 +65,11 @@ class Relaxed_UR5_Connection():
 
         rospy.wait_for_service('compute_fk')
         self._fk_service = rospy.ServiceProxy('compute_fk', GetPositionFK)
-        
+        self._kdl = UR5KDL()
         
         pose = self.compute_fk(init_state).pose
+        if debug_mode:
+            self.set_debug_properties()
             
         self.OnSolutionReceived(
             JointAngles(angles=Float64(init_state)), True)
@@ -89,7 +92,7 @@ class Relaxed_UR5_Connection():
         return posestamped
 
     def set_debug_properties(self):
-        self.marker_target_pub = rospy.Publisher(self.goal_marker_topic, PoseStamped, queue_size=1)
+        self.marker_target_pub = rospy.Publisher(self.goal_marker_topic, Marker, queue_size=1)
         self.target_marker = Marker(type=Marker.ARROW)
         # self.target_marker.type = Marker.ARROW
         self.target_marker.scale.x, self.target_marker.scale.y, self.target_marker.scale.z = 0.2, 0.01, 0.01
@@ -120,9 +123,13 @@ class Relaxed_UR5_Connection():
         if (self.min_angle < np.max(diff) < self.max_angle) or force:
             self.joint_manager.generate_movement(joint_angle_msg.angles.data)
             
-            
         elif np.any(np.absolute(diff) >= self.max_angle):
             rospy.logwarn('Arm seems to move too fast! max diff: {}'.format(np.absolute(diff).max()))
+        success, ee_pose = self._kdl.solve(joint_angle_msg.angles.data)
+        marker = self._kdl.generate_pose_marker(ee_pose)
+        self.marker_target_pub.publish(marker)
+        
+        
             
     def check_ee_safety(self):
         pose = self.compute_fk().pose
