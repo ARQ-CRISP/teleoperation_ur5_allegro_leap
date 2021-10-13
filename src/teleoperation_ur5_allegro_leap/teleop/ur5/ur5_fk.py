@@ -7,14 +7,11 @@ import PyKDL as kdl
 from tf_conversions import toMsg
 from collections import OrderedDict
 from scipy.optimize import minimize
-from leap_motion.LeapSDK.lib.Leap import Vector
-# from leap_motion.LeapSDK.lib.Leap import Frame
 
 import rospy
 from sensor_msgs.msg import JointState
 from visualization_msgs.msg import Marker
 
-# from .allegro_utils import allegro_finger2linklist, finger_allegro_idx, allegro_fingers
 
 class UR5KDL(object):
     world_frame = 'world'
@@ -36,7 +33,7 @@ class UR5KDL(object):
         
     def solve(self, theta):
         ee_pose = kdl.Frame()
-        if type(theta) in [list, np.ndarray]:
+        if type(theta) in [list, np.ndarray, tuple]:
             angles = kdl.JntArray(len(theta))
             for i, t in enumerate(theta):
                 angles[i] = t
@@ -71,44 +68,19 @@ class UR5KDL(object):
         self.last_sol = res
         return res
     
-    def _objfunc(self, x, x0, hand_vec):
+    def _objfunc(self, x, x0, target):
         
-        gamma = 2.5e-3
-        eps = 2e-2
-        norm_sq = np.asarray(x).dot(x)
-        diff_norm_sq = np.asarray(x).dot(x)
+        # gamma = 2.5e-3
+        # eps = 2e-2
+        # norm_sq = np.asarray(x).dot(x)
+        # diff_norm_sq = np.asarray(x).dot(x)
         
-        # def s(di, S, eps=1e-3):
-        #     if di > eps:
-        #         return 1.0
-        #     elif S == 0:
-        #         return 200.0
-        #     else:
-        #         return 400.0
-            
-        # def f(di, S, eps=1e-3):
-            
-        #     beta = 1.6
-        #     eta_1 = 1e-4
-        #     eta_2 = 3e-2
-        #     if di > eps:
-        #         return beta * di
-        #     elif S == 0:
-        #         return eta_1
-        #     else:
-        #         return eta_2
-        
-        # res, poses = self.solve(x)
-        # allegro_pos = np.asarray([(list(pose.p)) for pose in poses])
-        # allegro_vec = self._hand_points_to_vec(allegro_pos)
-        # # print('hand vec', hand_vec)
-        # # print('allegro vec', allegro_vec)
-        # err = 0.0
-        # for i, (a_vec, h_vec) in enumerate(zip(allegro_vec, hand_vec)):
-        #     d_i = np.linalg.norm(h_vec)
-        #     diff = a_vec - f(d_i, int(i >= 3), eps) * h_vec / d_i
-        #     err += diff.dot(diff) * s(d_i, int(i >= 3), eps)
-        # return gamma * norm_sq + gamma * diff_norm_sq + 1/2 * err
+        ee_pose = self.solve(x)
+        joint_diff = (x - x0).dot(x - x0)
+        cartesian_diff = (target.p - ee_pose.p).dot((target.p - ee_pose.p))
+        quat_diff = np.asarray(list(target.M.GetQuaternion())).dot(
+            np.asarray(list(ee_pose.M.GetQuaternion())))
+        return joint_diff + cartesian_diff + quat_diff
         
     
 
