@@ -92,15 +92,8 @@ class Leap_Teleop_Allegro():
         rospy.sleep(2.0)
         self.init_allegro_tips = OrderedDict()
         self.allegro_state = Allegro_Hand_State(tf_buffer)
-        # self.allegro_state = OrderedDict()
-        # for finger_name, value in finger_allegro_idx.items():
-        #     if value is not None:
-        #         if finger_name == 'Thumb':
-        #             self.allegro_state[finger_name] = Allegro_Thumb_State(
-        #                 finger_name, self.tf_buffer)
-        #         else:
-        #             self.allegro_state[finger_name] = Allegro_Finger_State(
-        #                 finger_name, self.tf_buffer)
+        rospy.Timer(rospy.Duration(0.3), self._hold_callback)
+        
                 
         self.leap_hand_tracker = Leap_Hand_TF_Tracker(
             self.tf_buffer,  # buffer recycling is good
@@ -212,6 +205,13 @@ class Leap_Teleop_Allegro():
         else:
             # Reset the state of the teleop otherwhise I am getting peaks in the derivative
             self.leap_hand_tracker.reset_history()
+    
+    def _hold_callback(self, msg):
+
+        if not self.is_tracking:
+            print("HOLDING", not self.is_tracking)
+            markers = MarkerArray()
+            self.publish_targets(markers, msg.current_real)
 
     def get_position_target(self, leap_finger, scale=1.6):
 
@@ -320,41 +320,6 @@ class Leap_Teleop_Allegro():
             # print(self.allegro_state[finger_name].ee_pose, target_pose[0])
             self.allegro_state[finger_name].goto(self.allegro_state[finger_name].base_position+target_pose[0], target_pose[1])
     
-    # def update_joint_position_targets(self, time):
-    #     # self.leap_hand_tracker.joint_position
-    #     self.allegro_state.set_target_jstate_positions(self.leap_hand_tracker.joint_position)
-    
-    def correct_targets(self, eps=0.01):
-        def objfunc(x, hand_dists):
-            # hand_dists = pdist(hand_x.reshape(4, 3))
-            # print(x.shape)
-            # allegro_dists = pdist(x.reshape(4, 3), metric='cosine')
-            # f =  np.linalg.norm(allegro_dists - hand_dists) #+ np.linalg.norm(np.linalg.norm(x[-3:]) - hand_dists[-1])
-            f = cdist(x[np.newaxis,:], hand_dists[np.newaxis, :], metric='cosine')
-            return f
-        
-        allegro_pos = []
-        hand_pos = []
-        allegro_finger_sizes = []
-        for finger_name, finger in self.leap_hand_tracker.fingers.items():
-            allegro_pos.append(self.allegro_state[finger_name].ee_position)
-            hand_pos.append(finger.position[-1, :])
-            allegro_finger_sizes.append(self.allegro_state[finger_name].finger_length())
-
-        allegro_pos = np.concatenate(allegro_pos)
-        hand_pos = np.concatenate(hand_pos)
-        res = minimize(
-            # lambda x: objfunc(x, pdist(hand_pos.reshape(4, 3), metric='cosine')),
-            lambda x: objfunc(x, hand_pos),
-            x0=allegro_pos,
-            method='SLSQP',
-            bounds=[(allegro_pos[i] - eps, allegro_pos[i] + eps) for i in range(12)])
-
-        for i, (finger_name, finger) in enumerate(self.leap_hand_tracker.fingers.items()):
-            self.allegro_state[finger_name].ee_position = res.x.reshape(4, 3)[i, :]
-        # print(res.x.reshape(4,3))
-
-    
     
     def publish_targets(self, markers, time):
         target_state = dict()
@@ -372,14 +337,16 @@ class Leap_Teleop_Allegro():
                 self.update_position_velocity_targets(time, position_weight=0.9)
                 
             elif self.__control_type == Control_Type.joint_position:
-                posegoal.joint_pose = self.leap_hand_tracker.joint_position
+                if self.is_tracking:
+                    self.allegro_state.set_target_jstate_positions(self.leap_hand_tracker.joint_position)
+                    hand_pos = np.asarray([value[-1] for key, value in self.leap_hand_tracker.position.items()])
+                    #RETARGETING ATTEMPT
+                    # x = x if self.allegro_state.AKDL.last_sol is None else self.allegro_state.AKDL.last_sol.x
+                    # x = self.allegro_state.AKDL.optimize(x, hand_pos).x
+                    # posegoal.joint_pose = x
+                posegoal.joint_pose = self.allegro_state.get_target_jstate()
                 x = posegoal.joint_pose
                 
-                hand_pos = np.asarray([value[-1] for key, value in self.leap_hand_tracker.position.items()])
-                #RETARGETING ATTEMPT
-                x = x if self.allegro_state.AKDL.last_sol is None else self.allegro_state.AKDL.last_sol.x
-                x = self.allegro_state.AKDL.optimize(x, hand_pos).x
-                posegoal.joint_pose = x
                 _, fingertip_pose = self.allegro_state.AKDL.solve(x)
                 markers = self.allegro_state.AKDL.gen_marker_array(fingertip_pose)
                     
@@ -387,8 +354,6 @@ class Leap_Teleop_Allegro():
                 
                 self.__pose_action_client.send_goal(posegoal, feedback_cb=self.on_pose_goal_feedback)
                 
-            # self.correct_targets(eps=0.02)
-
             # posegoal.cartesian_pose = [None] * 4
             if self.__control_type not in [Control_Type.joint_position]:
                 for finger_name, finger in self.leap_hand_tracker.fingers.items():
