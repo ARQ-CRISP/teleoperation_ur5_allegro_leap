@@ -47,7 +47,10 @@ class Allegro_Hand_State(object):
         
     def set_target_jstate_positions(self, states):
         self._target_jstates = states
-                
+
+    def get_target_jstate(self):
+        return self._target_jstates
+
     @property
     def last_movements(self):
         movements = []
