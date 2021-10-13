@@ -82,7 +82,7 @@ class Leap_Teleop_UR5():
         self.marker_pub = rospy.Publisher(self.marker_topic, Marker, queue_size=1)
 
         self.position_buffer = deque(maxlen=15)
-        self.orientation_buffer = deque(maxlen=15)
+        self.orientation_buffer = deque(maxlen=20)
         
         self.__tracking_toggler = rospy.Service(self.toggle_tracking_srv, Toggle_Tracking,
                                                 lambda msg: Toggle_TrackingResponse( 
