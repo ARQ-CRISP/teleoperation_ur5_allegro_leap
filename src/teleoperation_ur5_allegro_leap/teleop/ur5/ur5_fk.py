@@ -48,7 +48,7 @@ class UR5KDL(object):
             
         marker = Marker(pose=toMsg(ee_pose), type=Marker.ARROW, ns='/ur_target')
         marker.header.frame_id = frame_id
-        marker.scale.x, marker.scale.y, marker.scale.z = 1e-2, 1e-2, 3e-2
+        marker.scale.x, marker.scale.y, marker.scale.z = 1e-2, 3e-2, 1e-2
         marker.color.r, marker.color.g, marker.color.b = 1.0, 0.0, 0.3
         marker.color.a = 1.0
         
