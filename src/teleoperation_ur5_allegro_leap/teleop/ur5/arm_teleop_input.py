@@ -20,19 +20,20 @@ from teleoperation_ur5_allegro_leap.teleop.ur5 import ur5_teleop_prefix
 
 from teleoperation_ur5_allegro_leap.srv import Arm_Cartesian_Target, Arm_Cartesian_TargetResponse
 from teleoperation_ur5_allegro_leap.srv import Go_To_Base, Go_To_BaseResponse, Go_To_BaseRequest
+from teleoperation_ur5_allegro_leap.srv import Toggle_Tracking, Toggle_TrackingResponse
 
 class Arm_Teleop_Input(object):
     
     absolute_teleop_mode_rosparam = ur5_teleop_prefix + 'teleop_mode_absolute'
     
     goal_marker_topic  = ur5_teleop_prefix + 'target_marker_debug2'
+    toggle_rotation_lock_srv = ur5_teleop_prefix + 'toggle_rotation_lock'
     
     relaxed_ik_pose_goals_topic = '/relaxed_ik/ee_pose_goals'
     relaxed_ik_solutions_topic = '/relaxed_ik/joint_angle_solutions'
     request_topic = ur5_teleop_prefix + 'arm_pose_targets'
     
     def __init__(self, init_pose=None, rotation_bias=None, workspace=None):
-        
         if init_pose is None:
             self.init_pose = Frame(
                 Rotation.Quaternion(*[-0.707, -0.000, 0.707, -0.000]),
@@ -81,6 +82,8 @@ class Arm_Teleop_Input(object):
             self.workspace = workspace
         
         self.debug_mode = False
+        self._lock_orientation = False
+        
         # self.rotation_bias = Frame(Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0))
         # self.init_pose = Frame(
         #     Rotation.Quaternion(*[-0.707, -0.000, 0.707, -0.000]),
@@ -107,9 +110,17 @@ class Arm_Teleop_Input(object):
         self._set_target_service = rospy.Service(self.request_topic, Arm_Cartesian_Target,
                                                 lambda msg: Arm_Cartesian_TargetResponse( 
                                                     self.OnPoseRequest(msg.query)))
+        
+        self._toggle_rotation_lock_service = rospy.Service(self.toggle_rotation_lock_srv, Toggle_Tracking,
+                                                lambda update: Toggle_TrackingResponse( 
+                                                    self.toggle_orientation_lock() if update.update else self._lock_orientation))
     
     def OnPoseRequest(self, pose_stamped):
         request = pm.fromMsg(pose_stamped.pose)
+        
+        if self._lock_orientation:
+            
+            request.M = Rotation() if self.last_target is None else self.last_target
         
         # if self.get_absolute_mode_flag():
         request.p = Vector(*self.workspace.bind(request.p))
@@ -125,8 +136,15 @@ class Arm_Teleop_Input(object):
         self.goto_pose(
             corrected
             )
-        
+        self.last_target = corrected
         return True
+    
+    def toggle_orientation_lock(self):
+        self._lock_orientation = not self._lock_orientation
+        if self._lock_orientation:
+            rospy.loginfo('UR Teleop Orientation: UNLOCKED!')
+        else:
+            rospy.loginfo('UR Teleop Orientation: LOCKED!')
     
     def send_marker(self, pose, frame='world'):
         self.target_marker.pose = pose
@@ -183,16 +201,14 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
     marker_request_topic = ur5_teleop_prefix + 'move_marker_pose'
     def __init__(self, init_pose=None, rotation_bias=None, workspace=None):
         
-        # self.tf_buffer = tf2_ros.Buffer(1.)
-        # self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
-        
-        # self.world_pose = None
         super(Combined_Arm_Teleop_Input, self).__init__(init_pose, rotation_bias, workspace)
         
+        self.old_request = Frame()
         self.interactive_m = InteractiveControl(
             list(init_pose.p), list(init_pose.M.GetQuaternion()), 'Arm_Base_Pose')
         
-        # self.__timer_call = rospy.Timer(1/30, self.__get_world_pose)
+        
+        
         
     def setup_service(self):
         self._set_target_service = rospy.Service(self.request_topic, Arm_Cartesian_Target,
@@ -200,12 +216,18 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
                                                     super(Combined_Arm_Teleop_Input, self).OnPoseRequest(msg.query) \
                                                         if msg.absolute else self.OnPoseRequest(msg.query)))
         
+        self._toggle_rotation_lock_service = rospy.Service(self.toggle_rotation_lock_srv, Toggle_Tracking,
+                                                lambda update: Toggle_TrackingResponse( 
+                                                    self.toggle_orientation_lock() if update.update \
+                                                        else self._lock_orientation))
+        
         self._set_marker_pose_service = rospy.Service(self.marker_request_topic, Arm_Cartesian_Target,
                                                       lambda msg: Arm_Cartesian_TargetResponse(
                                                           self.set_interactive_pose(msg.query)))
 
         self.__go_to_base = rospy.Service(self.go_to_base_srv, Go_To_Base,
                                                 lambda msg: Go_To_BaseResponse(result=self.go_to_base(msg.base)))
+        
     
     def go_to_base(self, base):
         target = PoseStamped()
@@ -234,10 +256,14 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
         request = pm.fromMsg(pose_stamped.pose)
         
         target = Frame() 
-        target.M = self.interactive_m.frame.M * request.M
+        if self._lock_orientation:
+            target.M = self.interactive_m.frame.M * self.old_request.M
+        else:
+            target.M = self.interactive_m.frame.M * request.M
         target.p = self.interactive_m.frame.p + request.p
-        # print(list(target.p), list(target.M.GetQuaternion()))
         target.p = Vector(*self.workspace.bind(target.p))
+
+        print(list(target.p), list(target.M.GetQuaternion()))
         # self.interactive_m.frame * request
         # if self.get_absolute_mode_flag():
         request = self.pose_to_relative_frame(target)

@@ -34,6 +34,7 @@ class Teleop_GUI():
     toggle_tracking_hand_srv = allegro_telop_prefx + 'toggle_tracking'
     hand_pose_byname_srv = allegro_telop_prefx + 'pose_by_name'
     go_to_base_srv = ur5_teleop_prefix + 'go_to_base'
+    toggle_hand_orientation_lock_srv = ur5_teleop_prefix + 'toggle_rotation_lock'
     
     
     def __init__(self, step=0.01, width=350, height=650, arm=True, hand=True):
@@ -76,12 +77,15 @@ class Teleop_GUI():
             rospy.wait_for_service(self.toggle_tracking_arm_srv)
             rospy.wait_for_service(self.toggle_teleop_mode_srv)
             rospy.wait_for_service(self.go_to_base_srv)
+            rospy.wait_for_service(self.toggle_hand_orientation_lock_srv)
             self.__go_to_arm_base = rospy.ServiceProxy(self.go_to_base_srv, Go_To_Base)
             self.move_marker_by = rospy.ServiceProxy(self.marker_request_topic, Arm_Cartesian_Target)
             self.__toggle_arm_tracking = rospy.ServiceProxy(self.toggle_tracking_arm_srv, Toggle_Tracking)
             self.tracking['arm'] = self.__toggle_arm_tracking(update=False).is_tracking
             self.__toggle_teleop_mode = rospy.ServiceProxy(self.toggle_teleop_mode_srv, Toggle_ArmTeleopMode)
             self.tracking_mode['arm'] = self.__toggle_teleop_mode(update=False).mode
+            self.__toggle_arm_orientation = rospy.ServiceProxy(self.toggle_tracking_arm_srv, Toggle_Tracking)
+            self.arm_orientation_lock = self.__toggle_arm_orientation(update=False).is_tracking
             
         if hand:
             rospy.wait_for_service(self.toggle_tracking_hand_srv)
@@ -104,7 +108,10 @@ class Teleop_GUI():
         hand_status = 'Stop' if not self.tracking['hand'] else self.tracking_mode['hand']
         status = '\n'.join([
             'Arm Teleop: {}'.format(arm_status), 
-            'Hand Teleop: {}'.format(hand_status)])
+            'Hand Teleop: {}'.format(hand_status),
+            # 'Finger Hold: {}'.format(True),
+            # 'Hand Orientation Locked: {}'.format(self.arm_orientation_lock)
+            ])
         self.event_catcher.status_string.set(status)
     
     def set_commands(self, arm=True, hand=True):
@@ -133,6 +140,10 @@ class Teleop_GUI():
             self.event_catcher.bind_action('F3', (
                 lambda: self.toggle_tracking_mode('arm'),
                 None), 'Toggle Arm Tracking Mode' , 'arm_modes')
+            
+            self.event_catcher.bind_action('F4', (
+                lambda: self.toggle_arm_orientation_lock(),
+                None), 'Toggle Hand Orientation Lock' , 'arm_modes')
             
             self.event_catcher.bind_action('F8', (
                 lambda: self.go_to_arm_base(),
@@ -171,6 +182,11 @@ class Teleop_GUI():
     def toggle_tracking_mode(self, part='arm'):
         self.tracking_mode[part] = self.__toggle_teleop_mode(update=True).mode
         rospy.loginfo('Tracking mode of the robot {}: {}'.format(part, self.tracking_mode[part]))
+        self.update_status_string()
+        
+    def toggle_arm_orientation_lock(self):
+        self.arm_orientation_lock = self.__toggle_arm_orientation(update=True).is_tracking
+        rospy.loginfo('Hand Orientation Locked: {}'.format(self.arm_orientation_lock))
         self.update_status_string()
 
     def get_delta(self):

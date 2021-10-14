@@ -128,8 +128,6 @@ class Relaxed_UR5_Connection():
         success, ee_pose = self._kdl.solve(joint_angle_msg.angles.data)
         marker = self._kdl.generate_pose_marker(ee_pose)
         self.marker_target_pub.publish(marker)
-        
-        
             
     def check_ee_safety(self):
         pose = self.compute_fk().pose
@@ -147,8 +145,6 @@ class Relaxed_UR5_Connection():
                 rospy.logwarn('EE Back in Bounds! Restart!')
                 self.joint_manager.restart()
             
-        
-
     def on_kill(self):
         if self.joint_manager is not None:
             self.joint_manager.terminate()

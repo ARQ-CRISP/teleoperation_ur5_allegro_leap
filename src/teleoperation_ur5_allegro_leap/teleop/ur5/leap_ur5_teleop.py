@@ -80,9 +80,10 @@ class Leap_Teleop_UR5():
         self.send_target = rospy.ServiceProxy(self.pose_goal_topic, Arm_Cartesian_Target)
         self.__leap_listener = rospy.Subscriber(self.leap_motion_topic, Human, self.OnLeapMessage, queue_size=1)
         self.marker_pub = rospy.Publisher(self.marker_topic, Marker, queue_size=1)
-
+        
+        self._lock_orientation = False
         self.position_buffer = deque(maxlen=15)
-        self.orientation_buffer = deque(maxlen=20)
+        self.orientation_buffer = deque(maxlen=15)
         
         self.__tracking_toggler = rospy.Service(self.toggle_tracking_srv, Toggle_Tracking,
                                                 lambda msg: Toggle_TrackingResponse( 
