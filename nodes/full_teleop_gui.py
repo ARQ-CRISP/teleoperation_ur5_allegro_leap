@@ -84,7 +84,7 @@ class Teleop_GUI():
             self.tracking['arm'] = self.__toggle_arm_tracking(update=False).is_tracking
             self.__toggle_teleop_mode = rospy.ServiceProxy(self.toggle_teleop_mode_srv, Toggle_ArmTeleopMode)
             self.tracking_mode['arm'] = self.__toggle_teleop_mode(update=False).mode
-            self.__toggle_arm_orientation = rospy.ServiceProxy(self.toggle_tracking_arm_srv, Toggle_Tracking)
+            self.__toggle_arm_orientation = rospy.ServiceProxy(self.toggle_hand_orientation_lock_srv, Toggle_Tracking)
             self.arm_orientation_lock = self.__toggle_arm_orientation(update=False).is_tracking
             
         if hand:
@@ -109,8 +109,8 @@ class Teleop_GUI():
         status = '\n'.join([
             'Arm Teleop: {}'.format(arm_status), 
             'Hand Teleop: {}'.format(hand_status),
-            # 'Finger Hold: {}'.format(True),
-            # 'Hand Orientation Locked: {}'.format(self.arm_orientation_lock)
+            'Hand Orientation Locked: {}'.format(self.arm_orientation_lock),
+            'Finger Hold: {}'.format(True),
             ])
         self.event_catcher.status_string.set(status)
     

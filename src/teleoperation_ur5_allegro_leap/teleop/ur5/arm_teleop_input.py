@@ -262,8 +262,7 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
             target.M = self.interactive_m.frame.M * request.M
         target.p = self.interactive_m.frame.p + request.p
         target.p = Vector(*self.workspace.bind(target.p))
-
-        print(list(target.p), list(target.M.GetQuaternion()))
+        # print(list(target.p), list(target.M.GetQuaternion()))
         # self.interactive_m.frame * request
         # if self.get_absolute_mode_flag():
         request = self.pose_to_relative_frame(target)

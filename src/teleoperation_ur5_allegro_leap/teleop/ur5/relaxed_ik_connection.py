@@ -50,6 +50,7 @@ class Relaxed_UR5_Connection():
         self.sim = sim
         self.safety_counter = 0
         
+        self._kdl = UR5KDL()
         self.rotation_bias = Frame(Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0))
         
         self.posegoal = EEPoseGoals()
@@ -65,7 +66,6 @@ class Relaxed_UR5_Connection():
 
         rospy.wait_for_service('compute_fk')
         self._fk_service = rospy.ServiceProxy('compute_fk', GetPositionFK)
-        self._kdl = UR5KDL()
         
         pose = self.compute_fk(init_state).pose
         if debug_mode:

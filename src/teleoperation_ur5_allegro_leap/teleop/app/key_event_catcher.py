@@ -58,12 +58,12 @@ class EventCatcher(tk.Frame, object):
         self.frames['description'] = tk.Frame(self)#, background='black')
         self.frames['description'].pack(fill=tk.BOTH, padx=5, pady=5, side=tk.TOP)
 
-        self.status_string = tk.StringVar(self.frames['status_frame'], '')
+        self.status_string = tk.StringVar(self.frames['status_frame'], '\n'*4)
         
         self.status_label = tk.Label(self.frames['status_frame'], textvariable=self.status_string, anchor='center', 
                         font=("Helvetica", 15),
                         borderwidth=1, relief=tk.GROOVE, #relief=RIDGE, 
-                        width=15, height=2).pack(fill=tk.X, expand=True, padx=5, pady=5)#.grid(row=10, column=30)
+                        width=15, height=4).pack(fill=tk.X, expand=True, padx=5, pady=5)#.grid(row=10, column=30)
 
         self.hotkey_text_labels = []
         self.reset_pub = rospy.Publisher('/reset_sim', String, queue_size=1)
