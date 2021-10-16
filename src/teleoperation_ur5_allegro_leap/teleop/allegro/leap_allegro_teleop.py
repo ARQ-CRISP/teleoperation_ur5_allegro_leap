@@ -58,6 +58,7 @@ class Leap_Teleop_Allegro():
     finger_allegro_idx = finger_allegro_idx
     # {'Index': 0, 'Middle': 1, 'Ring': 2, 'Pinky': None, 'Thumb': 3}
 
+    toggle_finger_hold_srv = 'allegro_teleop/toggle_finger_lock' 
     toggle_tracking_srv = 'allegro_teleop/toggle_tracking'
     toggle_calibration_srv = 'allegro_teleop/toggle_calibration'
     pose_by_name_srv = 'allegro_teleop/pose_by_name'
@@ -92,6 +93,7 @@ class Leap_Teleop_Allegro():
         rospy.sleep(2.0)
         self.init_allegro_tips = OrderedDict()
         self.allegro_state = Allegro_Hand_State(tf_buffer)
+        self._is_locked = True
         rospy.Timer(rospy.Duration(0.3), self._hold_callback)
         
                 
@@ -112,6 +114,9 @@ class Leap_Teleop_Allegro():
         self.__tracking_toggler = rospy.Service(self.toggle_tracking_srv, Toggle_Tracking,
                                                 lambda update: Toggle_TrackingResponse( 
                                                     self.toggle_tracking() if update.update else self.is_tracking))
+        self._holding_toggler = rospy.Service(self.toggle_finger_hold_srv, Toggle_Tracking,
+                                                lambda update: Toggle_TrackingResponse( 
+                                                    self.toggle_finger_lock() if update.update else self._is_locked))
         self.__calibration_toggler = rospy.Service(self.toggle_calibration_srv, Toggle_Calibration,
                                                 lambda update: Toggle_CalibrationResponse(
                                                     self.toggle_calibration_mode() if update.update else self.is_calibrating))
@@ -160,6 +165,11 @@ class Leap_Teleop_Allegro():
             self.__leap_listener.unregister()
             self.__leap_listener = None
         return self.is_tracking
+    
+    def toggle_finger_lock(self):
+        self._is_locked = not self._is_locked
+        rospy.loginfo('Allegro Teleop finger lock: {}!'.format(self._is_locked))
+        return self._is_locked
 
     def get_fingertip_distance(self, Finger1, Finger2):
         fing1 = self.leap_hand_tracker.fingers[Finger1].position[-1, :]
@@ -208,8 +218,8 @@ class Leap_Teleop_Allegro():
     
     def _hold_callback(self, msg):
 
-        if not self.is_tracking:
-            print("HOLDING", not self.is_tracking)
+        if self._is_locked and not self.is_tracking:
+            print("HOLDING Fingers", not self.is_tracking)
             markers = MarkerArray()
             self.publish_targets(markers, msg.current_real)
 

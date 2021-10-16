@@ -145,6 +145,7 @@ class Arm_Teleop_Input(object):
             rospy.loginfo('UR Teleop Orientation: UNLOCKED!')
         else:
             rospy.loginfo('UR Teleop Orientation: LOCKED!')
+        return self._lock_orientation
     
     def send_marker(self, pose, frame='world'):
         self.target_marker.pose = pose
