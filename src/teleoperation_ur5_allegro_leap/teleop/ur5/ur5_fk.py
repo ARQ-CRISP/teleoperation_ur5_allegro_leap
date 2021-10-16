@@ -21,7 +21,8 @@ class UR5KDL(object):
     def __init__(self, robot_description_param="robot_description"):
         
         (status, self.tree) = kdl_parser.treeFromParam(robot_description_param)
-        self.bounds = [(-np.pi, np.pi) for i in range(5)]
+        base_pos = [2.3744237422943115, -2.0752771536456507, -1.7465012709247034, -0.8918698469745081, 1.5678939819335938, 0.013490866869688034]
+        self.bounds = [(base_pos[i] - np.pi/2, base_pos[i] + np.pi/2) for i in range(6)]
         self.chain = self.tree.getChain("world", self.wrist_frame)
         
         self._fk_solver = kdl.ChainFkSolverPos_recursive(self.chain) 
