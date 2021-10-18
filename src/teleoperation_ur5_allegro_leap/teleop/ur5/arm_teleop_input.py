@@ -119,8 +119,7 @@ class Arm_Teleop_Input(object):
         request = pm.fromMsg(pose_stamped.pose)
         
         if self._lock_orientation:
-            
-            request.M = Rotation() if self.last_target is None else self.last_target
+            request.M = Rotation() if self.last_target is None else self.last_target.M
         
         # if self.get_absolute_mode_flag():
         request.p = Vector(*self.workspace.bind(request.p))
@@ -261,6 +260,7 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
             target.M = self.interactive_m.frame.M * self.old_request.M
         else:
             target.M = self.interactive_m.frame.M * request.M
+            self.old_request = request
         target.p = self.interactive_m.frame.p + request.p
         target.p = Vector(*self.workspace.bind(target.p))
         # print(list(target.p), list(target.M.GetQuaternion()))
