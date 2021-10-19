@@ -11,7 +11,7 @@
   <!-- <arg name="record_state" default="true" /> -->
   <arg name="all_data" default="false" />
   <!-- <arg name="bag_path" default="/home/bespin"/> -->
-  <arg name="bag_path" default="/media/bespin/DataDrive/grasp_data_collection"/>
+  <arg name="bag_path" default="/media/bespin/DataDrive/3_f_data_collection"/>
 
   <arg name="obj" default="obj1"/>
   <arg name="mode" default="single"/>
