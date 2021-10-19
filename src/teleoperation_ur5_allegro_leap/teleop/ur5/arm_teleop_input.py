@@ -206,7 +206,18 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
         self.old_request = Frame()
         self.interactive_m = InteractiveControl(
             list(init_pose.p), list(init_pose.M.GetQuaternion()), 'Arm_Base_Pose')
-        
+
+        # self.interactive_m.frame = init_pose
+        # self.interactive_m.server.setPose("ur5_target_bias", pm.toMsg(init_pose))
+        # self.interactive_m.server.applyChanges()
+        # print(init_pose)
+        # HACK to make the marker go behind by 12 cm (REQUIRES better solution)
+        pp = Frame()
+        pp.p = Vector(*[0.12, 0., 0.])
+        pp.M = self.interactive_m.frame.M
+        if init_pose is not None:
+            self.set_interactive_pose(PoseStamped(pose=pm.toMsg(pp))) #NOw pressing F8 you go to init position
+        # END HACK to make the arm go behind by 12 cm (REQUIRES better solution)
         
         
         
@@ -230,22 +241,16 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
         
     
     def go_to_base(self, base):
-        target = PoseStamped()
+        target = PoseStamped(pose=pm.toMsg(Frame()))
         try:
             if base == 'init':
                 super(Combined_Arm_Teleop_Input, self).OnPoseRequest(target)
                 return True
             else:
-                #[-0.707, -0.000, 0.707, -0.000]
-                # target.pose.orientation.x = -0.707
-                # target.pose.orientation.z = 0.707
-                target.pose.orientation.w = 1.
-                print(target)
+                
                 self.OnPoseRequest(target)
                 return True
-            
-                self.go_to_pose(self.target)
-                return True
+                
         except Exception as e:
             return False
         
@@ -263,6 +268,7 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
             self.old_request = request
         target.p = self.interactive_m.frame.p + request.p
         target.p = Vector(*self.workspace.bind(target.p))
+        # print('CHECK', self.interactive_m.frame.p, self.interactive_m.frame.M.GetQuaternion())
         # print(list(target.p), list(target.M.GetQuaternion()))
         # self.interactive_m.frame * request
         # if self.get_absolute_mode_flag():
@@ -277,7 +283,7 @@ class Combined_Arm_Teleop_Input(Arm_Teleop_Input):
             corrected
             )
         
-    def set_interactive_pose(self, pose_stamped):
+    def set_interactive_pose(self, pose_stamped): 
         pose = pm.fromMsg(pose_stamped.pose)
         self.interactive_m.frame.p += pose.p
         # pose.M = self.interactive_m.frame.M
@@ -298,8 +304,9 @@ if __name__ == '__main__':
     else:
         rospy.loginfo('[' + rospy.get_name() + ']' + ' workspace_config: {}'.format(workspace_bounds))
     
+    # [0.200, 0.358, 1.146]
     
-    init_pose = [0.200, 0.358, 1.146], [-0.707, -0.000, 0.707, -0.000]
+    init_pose = [0.330, 0.358, 1.186], [0., 0.707, 0., 0.707]
     rotation_bias = [-0.7071067811865475, 0.7071067811865476, 0 ,0]
     workspace = WS_Bounds.from_center_scale(workspace_bounds['center'], workspace_bounds['scale'])
     controller = InteractiveControl(init_pose[0], init_pose[1])
