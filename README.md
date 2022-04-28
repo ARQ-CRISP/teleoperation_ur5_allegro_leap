@@ -1,6 +1,20 @@
 # Teleoperation Package for UR5 + Allegro (Maria) robot
 Leap based teleoperation package for the UR5 + Allegro Robot
+ 
+Please refer to `real_robot_interactive_teleop` as the most updated branch. 
+That is the one tested on the real robot. 
 
+## Demo Video: 
+
+https://user-images.githubusercontent.com/8159414/159833096-a2a14748-be1a-4aec-83a6-37b8b14de98c.mp4
+
+Other info about the teleoperation system can be found here:
+<p align="center"> 
+<a href="https://www.youtube.com/watch?feature=player_embedded&v=xiJxB5OeEs8" target="_blank">
+ <img src="https://img.youtube.com/vi/xiJxB5OeEs8/0.jpg" alt="Watch the video" width="540" border="5" />
+</a>
+    
+</p>
 
 
 ## Requirements 
