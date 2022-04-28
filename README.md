@@ -1,6 +1,11 @@
 # Teleoperation Package for UR5 + Allegro (Maria) robot
 Leap based teleoperation package for the UR5 + Allegro Robot
  
+This repo connects several nodes for interacting for the MARIA robot. 
+For the low level control of the Allegro Hand refer to `kdl_control_tools`. Developed in our research group.
+The As a solver for the robot arm, we use `relaxed_ik` from https://github.com/uwgraphics/relaxed_ik. However, because of some errors on the kinematics some edits have been made to the repository. please refer to this custom version -> https://github.com/Raziel90/relaxed_ik 
+  
+ 
 Please refer to `real_robot_interactive_teleop` as the most updated branch. 
 That is the one tested on the real robot. 
 
